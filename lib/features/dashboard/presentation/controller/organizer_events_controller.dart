@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../data/models/event_model.dart';
+import '../../../events/data/models/event_model.dart';
 
 final organizerEventsProvider =
     AsyncNotifierProvider<OrganizerEventsController, List<EventModel>>(() {

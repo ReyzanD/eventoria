@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../data/models/event_model.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+
+import '../../../events/data/models/event_model.dart';
 import '../controller/organizer_events_controller.dart';
 
 class CreateEventScreen extends ConsumerStatefulWidget {
@@ -24,6 +27,9 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
   bool _isPublished = false;
   bool _allowRefunds = false;
   bool _isSaving = false;
+
+  LatLng _pickedLocation = const LatLng(-6.2000, 106.8167);
+  bool _hasPickedLocation = false;
 
   final List<String> _categories = [
     'Conference',
@@ -60,8 +66,8 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
       isPublished: _isPublished,
       allowRefunds: _allowRefunds,
       createdAt: DateTime.now(),
-      latitude: 0.0,
-      longitude: 0.0,
+      latitude: _hasPickedLocation ? _pickedLocation.latitude : 0.0,
+      longitude: _hasPickedLocation ? _pickedLocation.longitude : 0.0,
     );
 
     final success = await ref
@@ -105,7 +111,6 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
       body: Center(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            // Responsive constraint barrier block
             double horizontalPadding = constraints.maxWidth > 700
                 ? (constraints.maxWidth - 650) / 2
                 : 16.0;
@@ -136,6 +141,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
                         ),
                         const SizedBox(height: 16),
                         DropdownButtonFormField<String>(
+                          // FIX: Swapped 'value' for 'initialValue'
                           initialValue: _selectedCategory,
                           items: _categories
                               .map(
@@ -180,7 +186,76 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
                               : null,
                         ),
                         const SizedBox(height: 16),
+                        const Text(
+                          'Pin Location on Map',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xff64748b),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          height: 250,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            // FIX: Wrapped BorderSide inside Border.all() to make it a valid BoxBorder
+                            border: Border.all(
+                              color: Colors.grey.withValues(alpha: 0.3),
+                            ),
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: FlutterMap(
+                            options: MapOptions(
+                              initialCenter: _pickedLocation,
+                              initialZoom: 13.0,
+                              onTap: (tapPosition, point) {
+                                setState(() {
+                                  _pickedLocation = point;
+                                  _hasPickedLocation = true;
+                                });
+                              },
+                            ),
+                            children: [
+                              TileLayer(
+                                urlTemplate:
+                                    'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                userAgentPackageName: 'com.venu.app',
+                              ),
+                              if (_hasPickedLocation)
+                                MarkerLayer(
+                                  markers: [
+                                    Marker(
+                                      point: _pickedLocation,
+                                      width: 40,
+                                      height: 40,
+                                      child: const Icon(
+                                        Icons.location_pin,
+                                        color: Colors.red,
+                                        size: 40,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                            ],
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: Text(
+                            _hasPickedLocation
+                                ? 'Coordinates Saved: [Lat: ${_pickedLocation.latitude.toStringAsFixed(4)}, Lng: ${_pickedLocation.longitude.toStringAsFixed(4)}]'
+                                : '💡 Click anywhere on the map grid to set precise coordinates',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ),
+                        const Divider(height: 32),
                         ListTile(
+                          contentPadding: EdgeInsets.zero,
                           title: Text(
                             'Starts: ${_startDate.toLocal().toString().substring(0, 16)}',
                           ),
@@ -226,6 +301,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
                             'Make this visible to attendees right away',
                           ),
                           value: _isPublished,
+                          // FIX: Swapped activeColor for activeThumbColor
                           activeThumbColor: const Color(0xFF2563EB),
                           onChanged: (val) =>
                               setState(() => _isPublished = val),
@@ -240,6 +316,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
                             'Let ticket buyers request order cancellations',
                           ),
                           value: _allowRefunds,
+                          // FIX: Swapped activeColor for activeThumbColor
                           activeThumbColor: const Color(0xFF2563EB),
                           onChanged: (val) =>
                               setState(() => _allowRefunds = val),

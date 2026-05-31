@@ -1,4 +1,5 @@
 import 'package:eventoria/features/dashboard/presentation/screens/organizer_dashboard_screen.dart';
+import 'package:eventoria/features/explore/presentation/screens/attendee_explore_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -79,9 +80,7 @@ class AuthGate extends ConsumerWidget {
         if (profile.role == UserRole.organizer) {
           return const OrganizerDashboardScreen();
         } else {
-          return const PlaceholderDashboard(
-            title: 'Attendee Explore Feed Workspace',
-          );
+          return const AttendeeExploreScreen();
         }
       },
       // Splash loading screen layout while fetching secure local tokens
