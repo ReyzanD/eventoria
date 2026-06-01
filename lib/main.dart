@@ -66,36 +66,30 @@ class AuthGate extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Watch the authentication state controller
     final authState = ref.watch(authControllerProvider);
 
     return authState.when(
       data: (profile) {
-        // Case 1: User is not logged in or active session expired
         if (profile == null) {
           return const SignInScreen();
         }
 
-        // Case 2: Role routing abstraction layer based on PostgreSQL profile record
         if (profile.role == UserRole.organizer) {
           return const OrganizerDashboardScreen();
         } else {
           return const AttendeeExploreScreen();
         }
       },
-      // Splash loading screen layout while fetching secure local tokens
       loading: () => const Scaffold(
         body: Center(
           child: CircularProgressIndicator(color: Color(0xFF2563EB)),
         ),
       ),
-      // Fallback interface handler if database synchronization fails
       error: (error, stackTrace) => const SignInScreen(),
     );
   }
 }
 
-// Quick temporary screen placeholders for routing validation
 class PlaceholderDashboard extends ConsumerWidget {
   final String title;
   const PlaceholderDashboard({required this.title, super.key});

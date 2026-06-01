@@ -1,3 +1,4 @@
+import 'package:eventoria/features/explore/presentation/screens/event_details_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
@@ -8,13 +9,21 @@ class AttendeeExploreScreen extends ConsumerStatefulWidget {
   const AttendeeExploreScreen({super.key});
 
   @override
-  ConsumerState<AttendeeExploreScreen> createState() => _AttendeeExploreScreenState();
+  ConsumerState<AttendeeExploreScreen> createState() =>
+      _AttendeeExploreScreenState();
 }
 
 class _AttendeeExploreScreenState extends ConsumerState<AttendeeExploreScreen> {
   // We can use this later to filter the UI list locally!
-  String _selectedCategory = 'All'; 
-  final List<String> _categories = ['All', 'Conference', 'Festival', 'Workshop', 'Concert', 'Exhibition'];
+  String _selectedCategory = 'All';
+  final List<String> _categories = [
+    'All',
+    'Conference',
+    'Festival',
+    'Workshop',
+    'Concert',
+    'Exhibition',
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +32,10 @@ class _AttendeeExploreScreenState extends ConsumerState<AttendeeExploreScreen> {
     return Scaffold(
       backgroundColor: const Color(0xfff8fafc),
       appBar: AppBar(
-        title: const Text('Discover Events', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Discover Events',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 0,
@@ -42,19 +54,25 @@ class _AttendeeExploreScreenState extends ConsumerState<AttendeeExploreScreen> {
           _buildCategoryFilters(),
           Expanded(
             child: RefreshIndicator(
-              onRefresh: () => ref.read(attendeeEventsProvider.notifier).refresh(),
+              onRefresh: () =>
+                  ref.read(attendeeEventsProvider.notifier).refresh(),
               child: eventsState.when(
                 data: (events) {
                   // Apply local category filtering
-                  final filteredEvents = _selectedCategory == 'All' 
-                      ? events 
-                      : events.where((e) => e.category == _selectedCategory).toList();
+                  final filteredEvents = _selectedCategory == 'All'
+                      ? events
+                      : events
+                            .where((e) => e.category == _selectedCategory)
+                            .toList();
 
                   if (filteredEvents.isEmpty) return _buildEmptyState();
                   return _buildEventFeed(filteredEvents);
                 },
-                loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFF2563EB))),
-                error: (err, stack) => Center(child: Text('Error loading feed: $err')),
+                loading: () => const Center(
+                  child: CircularProgressIndicator(color: Color(0xFF2563EB)),
+                ),
+                error: (err, stack) =>
+                    Center(child: Text('Error loading feed: $err')),
               ),
             ),
           ),
@@ -74,7 +92,7 @@ class _AttendeeExploreScreenState extends ConsumerState<AttendeeExploreScreen> {
         itemBuilder: (context, index) {
           final category = _categories[index];
           final isSelected = _selectedCategory == category;
-          
+
           return Padding(
             padding: const EdgeInsets.only(right: 8.0),
             child: ChoiceChip(
@@ -90,7 +108,9 @@ class _AttendeeExploreScreenState extends ConsumerState<AttendeeExploreScreen> {
               ),
               backgroundColor: Colors.grey.withValues(alpha: 0.1),
               side: BorderSide.none,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
             ),
           );
         },
@@ -110,9 +130,22 @@ class _AttendeeExploreScreenState extends ConsumerState<AttendeeExploreScreen> {
   }
 
   Widget _buildEventCard(EventModel event) {
-    // Format date nicely (e.g., "Oct 24, 2026")
-    final monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    final dateStr = '${monthNames[event.startDate.month - 1]} ${event.startDate.day}, ${event.startDate.year}';
+    final monthNames = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+    final dateStr =
+        '${monthNames[event.startDate.month - 1]} ${event.startDate.day}, ${event.startDate.year}';
 
     return Card(
       margin: const EdgeInsets.only(bottom: 20),
@@ -125,24 +158,34 @@ class _AttendeeExploreScreenState extends ConsumerState<AttendeeExploreScreen> {
       color: Colors.white,
       child: InkWell(
         onTap: () {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Opening Event Details...')));
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => EventDetailsScreen(event: event),
+            ),
+          );
         },
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Mock Image Placeholder Area
             Container(
               height: 160,
               width: double.infinity,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [const Color(0xFF2563EB).withValues(alpha: 0.8), const Color(0xFF4F46E5)],
+                  colors: [
+                    const Color(0xFF2563EB).withValues(alpha: 0.8),
+                    const Color(0xFF4F46E5),
+                  ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
               ),
               child: const Center(
-                child: Icon(Icons.confirmation_number_outlined, color: Colors.white54, size: 60),
+                child: Icon(
+                  Icons.confirmation_number_outlined,
+                  color: Colors.white54,
+                  size: 60,
+                ),
               ),
             ),
             Padding(
@@ -155,30 +198,50 @@ class _AttendeeExploreScreenState extends ConsumerState<AttendeeExploreScreen> {
                     children: [
                       Text(
                         event.category.toUpperCase(),
-                        style: const TextStyle(color: Color(0xFF2563EB), fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+                        style: const TextStyle(
+                          color: Color(0xFF2563EB),
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.2,
+                        ),
                       ),
                       Text(
                         dateStr,
-                        style: const TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 8),
                   Text(
                     event.title,
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xff1e293b)),
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xff1e293b),
+                    ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      const Icon(Icons.location_on, color: Colors.grey, size: 16),
+                      const Icon(
+                        Icons.location_on,
+                        color: Colors.grey,
+                        size: 16,
+                      ),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
                           event.venueName,
-                          style: const TextStyle(color: Color(0xff64748b), fontSize: 14),
+                          style: const TextStyle(
+                            color: Color(0xff64748b),
+                            fontSize: 14,
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -199,11 +262,19 @@ class _AttendeeExploreScreenState extends ConsumerState<AttendeeExploreScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.search_off_rounded, size: 80, color: Colors.grey.withValues(alpha: 0.5)),
+          Icon(
+            Icons.search_off_rounded,
+            size: 80,
+            color: Colors.grey.withValues(alpha: 0.5),
+          ),
           const SizedBox(height: 16),
           const Text(
             'No Events Found',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xff1e293b)),
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Color(0xff1e293b),
+            ),
           ),
           const SizedBox(height: 8),
           const Text(
