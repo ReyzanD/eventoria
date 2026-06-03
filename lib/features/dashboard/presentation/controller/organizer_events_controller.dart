@@ -1,4 +1,5 @@
 import 'package:eventoria/features/events/data/models/ticket_model.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../events/data/models/event_model.dart';
@@ -22,7 +23,7 @@ class OrganizerEventsController extends AsyncNotifier<List<EventModel>> {
 
     final response = await _client
         .from('events')
-        .select()
+        .select('*, ticket_tiers(*)')
         .eq('organizer_id', user.id)
         .order('created_at', ascending: false);
 
@@ -34,7 +35,7 @@ class OrganizerEventsController extends AsyncNotifier<List<EventModel>> {
     state = await AsyncValue.guard(() => _fetchOrganizerEvents());
   }
 
-  // 1. We added the second parameter here: List<TicketTierModel> tiers
+
   Future<bool> createEvent(
     EventModel newEvent,
     List<TicketModel> tiers,
@@ -76,7 +77,7 @@ class OrganizerEventsController extends AsyncNotifier<List<EventModel>> {
       return true;
     } catch (e) {
       assert(() {
-        print('Error creating event and tiers: $e');
+        debugPrint('Error creating event and tiers: $e');
         return true;
       }());
       return false;

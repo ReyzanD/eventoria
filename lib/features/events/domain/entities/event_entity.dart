@@ -1,3 +1,5 @@
+import '../../data/models/ticket_model.dart';
+
 class EventEntity {
   final String id;
   final String organizerId;
@@ -13,6 +15,7 @@ class EventEntity {
   final bool isPublished;
   final bool allowRefunds;
   final DateTime createdAt;
+  final List<TicketModel>? ticketTiers;
 
   const EventEntity({
     required this.id,
@@ -29,5 +32,6 @@ class EventEntity {
     required this.isPublished,
     required this.allowRefunds,
     required this.createdAt,
+    this.ticketTiers,
   });
 }

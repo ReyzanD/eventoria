@@ -1,11 +1,17 @@
+import 'dart:ui' as ui;
+import 'package:eventoria/features/dashboard/presentation/controller/organizer_dashboard_controller.dart';
 import 'package:eventoria/features/events/data/models/ticket_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-
 import '../../../events/data/models/event_model.dart';
 import '../controller/organizer_events_controller.dart';
+import '../widgets/create_event/add_tier_dialog.dart';
+import '../widgets/create_event/event_cover_image_picker.dart';
+import '../widgets/create_event/event_date_time_pickers.dart';
+import '../widgets/create_event/event_location_map.dart';
+import '../widgets/create_event/event_ticket_tiers.dart';
+import '../widgets/create_event/event_title_and_category.dart';
 
 class CreateEventScreen extends ConsumerStatefulWidget {
   const CreateEventScreen({super.key});
@@ -24,12 +30,14 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
   final _tierPriceController = TextEditingController();
   final _tierCapacityController = TextEditingController();
 
-  String _selectedCategory = 'Conference';
+  String _selectedCategory = 'Festival';
   DateTime _startDate = DateTime.now().add(const Duration(days: 1));
-  final DateTime _endDate = DateTime.now().add(
-    const Duration(days: 1, hours: 3),
-  );
-  bool _isPublished = false;
+  DateTime _endDate = DateTime.now().add(const Duration(days: 1, hours: 3));
+  TimeOfDay _startTime = const TimeOfDay(hour: 16, minute: 0);
+  TimeOfDay _endTime = const TimeOfDay(hour: 22, minute: 0);
+
+  String? _coverImageUrl;
+  bool _isPublished = true;
   bool _allowRefunds = false;
   bool _isSaving = false;
 
@@ -37,10 +45,10 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
   bool _hasPickedLocation = false;
 
   final List<String> _categories = [
-    'Conference',
     'Festival',
-    'Workshop',
     'Concert',
+    'Conference',
+    'Workshop',
     'Exhibition',
   ];
 
@@ -49,10 +57,13 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
     _titleController.dispose();
     _descController.dispose();
     _venueController.dispose();
+    _tierNameController.dispose();
+    _tierPriceController.dispose();
+    _tierCapacityController.dispose();
     super.dispose();
   }
 
-  Future<void> _submitForm() async {
+  Future<void> _submitForm({bool forceDraft = false}) async {
     if (!_formKey.currentState!.validate()) return;
 
     if (!_hasPickedLocation) {
@@ -68,9 +79,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
     if (_localTicketTiers.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Please add at least one ticket tier (e.g., Free, VIP).',
-          ),
+          content: Text('Please add at least one ticket tier.'),
           backgroundColor: Colors.redAccent,
         ),
       );
@@ -80,6 +89,21 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
     setState(() => _isSaving = true);
 
     try {
+      final startDateTime = DateTime(
+        _startDate.year,
+        _startDate.month,
+        _startDate.day,
+        _startTime.hour,
+        _startTime.minute,
+      );
+      final endDateTime = DateTime(
+        _endDate.year,
+        _endDate.month,
+        _endDate.day,
+        _endTime.hour,
+        _endTime.minute,
+      );
+
       final eventPayload = EventModel(
         id: '',
         organizerId: '',
@@ -88,12 +112,13 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
             ? null
             : _descController.text.trim(),
         category: _selectedCategory,
-        startDate: _startDate,
-        endDate: _endDate,
+        startDate: startDateTime,
+        endDate: endDateTime,
         venueName: _venueController.text.trim(),
         latitude: _pickedLocation.latitude,
         longitude: _pickedLocation.longitude,
-        isPublished: _isPublished,
+        coverImageUrl: _coverImageUrl,
+        isPublished: forceDraft ? false : _isPublished,
         allowRefunds: _allowRefunds,
         createdAt: DateTime.now(),
       );
@@ -111,14 +136,19 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
 
       final success = await ref
           .read(organizerEventsProvider.notifier)
-          .createEvent(eventPayload, tiersToSubmit); // <-- UPDATED HERE
+          .createEvent(eventPayload, tiersToSubmit);
 
       if (!mounted) return;
 
       if (success) {
+        ref.invalidate(organizerDashboardProvider);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Event & Tickets published successfully! 🎉'),
+          SnackBar(
+            content: Text(
+              forceDraft
+                  ? 'Draft saved successfully!'
+                  : 'Event published successfully! 🎉',
+            ),
             backgroundColor: Colors.green,
           ),
         );
@@ -147,507 +177,309 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
     }
   }
 
+  Future<void> _selectDate(bool isStart) async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: isStart ? _startDate : _endDate,
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (date != null) {
+      setState(() {
+        if (isStart) {
+          _startDate = date;
+          if (_endDate.isBefore(_startDate)) {
+            _endDate = _startDate.add(const Duration(hours: 3));
+          }
+        } else {
+          _endDate = date;
+        }
+      });
+    }
+  }
+
+  Future<void> _selectTime(bool isStart) async {
+    final time = await showTimePicker(
+      context: context,
+      initialTime: isStart ? _startTime : _endTime,
+    );
+    if (time != null) {
+      setState(() {
+        if (isStart) {
+          _startTime = time;
+        } else {
+          _endTime = time;
+        }
+      });
+    }
+  }
+
+  void _mockImageUpload() {
+    setState(() {
+      _coverImageUrl =
+          'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=1600&q=80';
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Cover image selected!'),
+        duration: Duration(milliseconds: 1500),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xfff8fafc),
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text(
-          'List New Event',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          'Create event',
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+            fontSize: 20,
+            color: Color(0xFF1E293B),
+          ),
         ),
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF3B4FEB)),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: _isSaving ? null : () => _submitForm(forceDraft: true),
+            child: const Text(
+              'Save draft',
+              style: TextStyle(
+                color: Color(0xFF3B4FEB),
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+          ),
+        ],
         backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
         elevation: 0,
       ),
-      body: Center(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            double horizontalPadding = constraints.maxWidth > 700
-                ? (constraints.maxWidth - 650) / 2
-                : 16.0;
-
-            return Form(
-              key: _formKey,
-              child: ListView(
-                padding: EdgeInsets.symmetric(
-                  horizontal: horizontalPadding,
-                  vertical: 24,
-                ),
-                children: [
-                  _buildFormCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildSectionHeading('Event Core Details'),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _titleController,
-                          decoration: _inputDecoration(
-                            'Event Title',
-                            Icons.title,
-                          ),
-                          validator: (v) => v == null || v.trim().isEmpty
-                              ? 'Title is required'
-                              : null,
-                        ),
-                        const SizedBox(height: 16),
-                        DropdownButtonFormField<String>(
-                          // FIX: Swapped 'value' for 'initialValue'
-                          initialValue: _selectedCategory,
-                          items: _categories
-                              .map(
-                                (c) =>
-                                    DropdownMenuItem(value: c, child: Text(c)),
-                              )
-                              .toList(),
-                          onChanged: (val) =>
-                              setState(() => _selectedCategory = val!),
-                          decoration: _inputDecoration(
-                            'Category',
-                            Icons.category,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _descController,
-                          maxLines: 3,
-                          decoration: _inputDecoration(
-                            'Description (Optional)',
-                            Icons.description,
-                          ),
-                        ),
-                      ],
+      body: _isSaving
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFF3B4FEB)),
+            )
+          : Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 750),
+                child: Form(
+                  key: _formKey,
+                  child: ListView(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 16,
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  _buildFormCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildSectionHeading('Location & Timing'),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _venueController,
-                          decoration: _inputDecoration(
-                            'Venue Name',
-                            Icons.place_rounded,
-                          ),
-                          validator: (v) => v == null || v.trim().isEmpty
-                              ? 'Venue is required'
-                              : null,
-                        ),
-                        const SizedBox(height: 16),
-                        const Text(
-                          'Pin Location on Map',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xff64748b),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Container(
-                          height: 250,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            // FIX: Wrapped BorderSide inside Border.all() to make it a valid BoxBorder
-                            border: Border.all(
-                              color: Colors.grey.withValues(alpha: 0.3),
-                            ),
-                          ),
-                          clipBehavior: Clip.antiAlias,
-                          child: FlutterMap(
-                            options: MapOptions(
-                              initialCenter: _pickedLocation,
-                              initialZoom: 13.0,
-                              onTap: (tapPosition, point) {
-                                setState(() {
-                                  _pickedLocation = point;
-                                  _hasPickedLocation = true;
-                                });
-                              },
-                            ),
-                            children: [
-                              TileLayer(
-                                urlTemplate:
-                                    'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                                userAgentPackageName: 'com.venu.app',
-                              ),
-                              if (_hasPickedLocation)
-                                MarkerLayer(
-                                  markers: [
-                                    Marker(
-                                      point: _pickedLocation,
-                                      width: 40,
-                                      height: 40,
-                                      child: const Icon(
-                                        Icons.location_pin,
-                                        color: Colors.red,
-                                        size: 40,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                            ],
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8.0),
-                          child: Text(
-                            _hasPickedLocation
-                                ? 'Coordinates Saved: [Lat: ${_pickedLocation.latitude.toStringAsFixed(4)}, Lng: ${_pickedLocation.longitude.toStringAsFixed(4)}]'
-                                : '💡 Click anywhere on the map grid to set precise coordinates',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey,
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-                        ),
-                        const Divider(height: 32),
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(
-                            'Starts: ${_startDate.toLocal().toString().substring(0, 16)}',
-                          ),
-                          trailing: const Icon(
-                            Icons.calendar_month,
-                            color: Color(0xFF2563EB),
-                          ),
-                          onTap: () async {
-                            final date = await showDatePicker(
-                              context: context,
-                              initialDate: _startDate,
-                              firstDate: DateTime.now(),
-                              lastDate: DateTime.now().add(
-                                const Duration(days: 365),
-                              ),
-                            );
-                            if (date != null) {
-                              setState(
-                                () => _startDate = DateTime(
-                                  date.year,
-                                  date.month,
-                                  date.day,
-                                  _startDate.hour,
-                                  _startDate.minute,
-                                ),
-                              );
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  _buildTicketTiersSection(),
-                  const SizedBox(height: 16),
-                  _buildFormCard(
-                    child: Column(
-                      children: [
-                        SwitchListTile(
-                          title: const Text(
-                            'Publish Immediately',
-                            style: TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          subtitle: const Text(
-                            'Make this visible to attendees right away',
-                          ),
-                          value: _isPublished,
-                          // FIX: Swapped activeColor for activeThumbColor
-                          activeThumbColor: const Color(0xFF2563EB),
-                          onChanged: (val) =>
-                              setState(() => _isPublished = val),
-                        ),
-                        const Divider(),
-                        SwitchListTile(
-                          title: const Text(
-                            'Allow Ticket Refunds',
-                            style: TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          subtitle: const Text(
-                            'Let ticket buyers request order cancellations',
-                          ),
-                          value: _allowRefunds,
-                          // FIX: Swapped activeColor for activeThumbColor
-                          activeThumbColor: const Color(0xFF2563EB),
-                          onChanged: (val) =>
-                              setState(() => _allowRefunds = val),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  ElevatedButton(
-                    onPressed: _isSaving ? null : _submitForm,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF2563EB),
-                      padding: const EdgeInsets.symmetric(vertical: 18),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                    children: [
+                      EventCoverImagePicker(
+                        imageUrl: _coverImageUrl,
+                        onImagePicked: _mockImageUpload,
+                        onImageRemoved: () {
+                          setState(() {
+                            _coverImageUrl = null;
+                          });
+                        },
                       ),
-                    ),
-                    child: _isSaving
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : const Text(
-                            'Submit & Save Event',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
+                      const SizedBox(height: 24),
 
-  Widget _buildFormCard({required Widget child}) {
-    return Card(
-      elevation: 0,
-      color: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.grey.withValues(alpha: 0.15)),
-      ),
-      child: Padding(padding: const EdgeInsets.all(20), child: child),
-    );
-  }
-
-  Widget _buildSectionHeading(String text) {
-    return Text(
-      text,
-      style: const TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.bold,
-        color: Color(0xff1e293b),
-      ),
-    );
-  }
-
-  Widget _buildTicketTiersSection() {
-    return Card(
-      elevation: 0,
-      color: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Ticket Pricing & Tiers',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xff1e293b),
-                  ),
-                ),
-                TextButton.icon(
-                  onPressed: _showAddTierDialog,
-                  icon: const Icon(
-                    Icons.add,
-                    size: 18,
-                    color: Color(0xFF2563EB),
-                  ),
-                  label: const Text(
-                    'Add Tier',
-                    style: TextStyle(
-                      color: Color(0xFF2563EB),
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const Divider(height: 24),
-            if (_localTicketTiers.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Text(
-                  'Please add at least one ticket tier (e.g., Free Entry, General Admission, VIP) so attendees can register.',
-                  style: TextStyle(
-                    color: Colors.grey.shade600,
-                    fontSize: 13,
-                    height: 1.4,
-                  ),
-                ),
-              )
-            else
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _localTicketTiers.length,
-                itemBuilder: (context, index) {
-                  final tier = _localTicketTiers[index];
-                  final double price = tier['price'];
-                  final int capacity = tier['total_capacity'];
-
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xfff8fafc),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: Colors.grey.withValues(alpha: 0.1),
+                      EventTitleAndCategory(
+                        titleController: _titleController,
+                        selectedCategory: _selectedCategory,
+                        categories: _categories,
+                        onCategoryChanged: (val) {
+                          setState(() {
+                            _selectedCategory = val!;
+                          });
+                        },
                       ),
-                    ),
-                    child: ListTile(
-                      dense: true,
-                      title: Text(
-                        tier['name'],
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
+                      const SizedBox(height: 20),
+
+                      EventDateTimePickers(
+                        startDate: _startDate,
+                        endDate: _endDate,
+                        startTime: _startTime,
+                        endTime: _endTime,
+                        onSelectStartDate: () => _selectDate(true),
+                        onSelectEndDate: () => _selectDate(false),
+                        onSelectStartTime: () => _selectTime(true),
+                        onSelectEndTime: () => _selectTime(false),
                       ),
-                      subtitle: Text(
-                        'Price: ${price == 0 ? "FREE" : "\$${price.toStringAsFixed(2)}"}  |  Capacity: $capacity slots',
-                        style: const TextStyle(color: Color(0xff64748b)),
+                      const SizedBox(height: 20),
+
+                      EventLocationMap(
+                        venueController: _venueController,
+                        pickedLocation: _pickedLocation,
+                        hasPickedLocation: _hasPickedLocation,
+                        onMapTapped: (tapPosition, point) {
+                          setState(() {
+                            _pickedLocation = point;
+                            _hasPickedLocation = true;
+                          });
+                        },
                       ),
-                      trailing: IconButton(
-                        icon: const Icon(
-                          Icons.delete_outline,
-                          color: Colors.redAccent,
-                          size: 20,
-                        ),
-                        onPressed: () {
+                      const SizedBox(height: 20),
+
+                      EventTicketTiers(
+                        tiers: _localTicketTiers,
+                        onAddTier: () => _showAddTierDialog(),
+                        onEditTier: (index) =>
+                            _showAddTierDialog(editIndex: index),
+                        onDeleteTier: (index) {
                           setState(() {
                             _localTicketTiers.removeAt(index);
                           });
                         },
                       ),
-                    ),
-                  );
-                },
+                      const SizedBox(height: 24),
+
+                      // Toggle Switches
+                      SwitchListTile(
+                        title: const Text(
+                          'Publish immediately',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1E293B),
+                            fontSize: 15,
+                          ),
+                        ),
+                        value: _isPublished,
+                        activeThumbColor: Colors.white,
+                        activeTrackColor: const Color(0xFF3B4FEB),
+                        contentPadding: EdgeInsets.zero,
+                        onChanged: (val) => setState(() => _isPublished = val),
+                      ),
+                      const Divider(color: Color(0xFFE2E8F0)),
+                      SwitchListTile(
+                        title: const Text(
+                          'Allow refunds',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1E293B),
+                            fontSize: 15,
+                          ),
+                        ),
+                        value: _allowRefunds,
+                        activeThumbColor: Colors.white,
+                        activeTrackColor: const Color(0xFF3B4FEB),
+                        contentPadding: EdgeInsets.zero,
+                        onChanged: (val) => setState(() => _allowRefunds = val),
+                      ),
+
+                      const SizedBox(height: 32),
+
+                      // Publish Event Button
+                      ElevatedButton(
+                        onPressed: () => _submitForm(),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFF45E65),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: const Text(
+                          'Publish event',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                    ],
+                  ),
+                ),
               ),
-          ],
-        ),
-      ),
+            ),
     );
   }
 
-  void _showAddTierDialog() {
-    _tierNameController.clear();
-    _tierPriceController.clear();
-    _tierCapacityController.clear();
+  void _showAddTierDialog({int? editIndex}) async {
+    final Map<String, dynamic>? initialData = editIndex != null
+        ? _localTicketTiers[editIndex]
+        : null;
 
-    showDialog(
+    final result = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text(
-            'New Ticket Tier',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: _tierNameController,
-                decoration: const InputDecoration(
-                  labelText: 'Tier Name (e.g. Early Bird, VIP)',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _tierPriceController,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                decoration: const InputDecoration(
-                  labelText: 'Price (Set 0 for Free)',
-                  prefixText: '\$ ',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _tierCapacityController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Total Available Capacity',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                if (_tierNameController.text.isEmpty ||
-                    _tierCapacityController.text.isEmpty)
-                  return;
+      builder: (context) => AddTierDialog(initialData: initialData),
+    );
 
-                final price = double.tryParse(_tierPriceController.text) ?? 0.0;
-                final capacity =
-                    int.tryParse(_tierCapacityController.text) ?? 0;
+    if (result == null) return;
 
-                setState(() {
-                  _localTicketTiers.add({
-                    'id': '', // Will be generated by Postgres
-                    'event_id': '', // Will be mapped by Controller
-                    'name': _tierNameController.text.trim(),
-                    'price': price,
-                    'total_capacity': capacity,
-                    'tickets_sold': 0,
-                  });
-                });
+    setState(() {
+      final data = {
+        'id': editIndex != null ? _localTicketTiers[editIndex]['id'] : '',
+        'event_id': editIndex != null
+            ? _localTicketTiers[editIndex]['event_id']
+            : '',
+        'name': result['name'],
+        'price': result['price'],
+        'total_capacity': result['total_capacity'],
+        'tickets_sold': editIndex != null
+            ? _localTicketTiers[editIndex]['tickets_sold']
+            : 0,
+      };
 
-                Navigator.pop(context);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2563EB),
-              ),
-              child: const Text('Add', style: TextStyle(color: Colors.white)),
-            ),
-          ],
+      if (editIndex != null) {
+        _localTicketTiers[editIndex] = data;
+      } else {
+        _localTicketTiers.add(data);
+      }
+    });
+  }
+}
+
+class DashedBorderPainter extends CustomPainter {
+  final Color color;
+  final double strokeWidth;
+  final double gap;
+  final double dashLength;
+  final double borderRadius;
+
+  DashedBorderPainter({
+    required this.color,
+    this.strokeWidth = 1.0,
+    this.gap = 4.0,
+    this.dashLength = 6.0,
+    this.borderRadius = 12.0,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Paint paint = Paint()
+      ..color = color
+      ..strokeWidth = strokeWidth
+      ..style = PaintingStyle.stroke;
+
+    final ui.Path path = ui.Path()
+      ..addRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(0, 0, size.width, size.height),
+          Radius.circular(borderRadius),
+        ),
+      );
+
+    final ui.Path dashedPath = ui.Path();
+    double distance = 0.0;
+    for (final ui.PathMetric measurePath in path.computeMetrics()) {
+      while (distance < measurePath.length) {
+        dashedPath.addPath(
+          measurePath.extractPath(distance, distance + dashLength),
+          Offset.zero,
         );
-      },
-    );
+        distance += dashLength + gap;
+      }
+    }
+    canvas.drawPath(dashedPath, paint);
   }
 
-  InputDecoration _inputDecoration(String label, IconData icon) {
-    return InputDecoration(
-      labelText: label,
-      prefixIcon: Icon(icon, color: Colors.grey.withValues(alpha: 0.7)),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFF2563EB), width: 2),
-      ),
-    );
-  }
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

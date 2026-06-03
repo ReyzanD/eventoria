@@ -1,5 +1,5 @@
 import 'package:eventoria/features/dashboard/presentation/screens/organizer_dashboard_screen.dart';
-import 'package:eventoria/features/explore/presentation/screens/attendee_explore_screen.dart';
+import 'package:eventoria/features/discover/presentation/screens/attendee_discover_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -52,9 +52,14 @@ class VenuApp extends StatelessWidget {
       title: 'Venu',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        brightness: Brightness.dark,
-        primaryColor: const Color(0xFF2563EB),
-        scaffoldBackgroundColor: const Color(0xFF0F172A),
+        brightness: Brightness.light,
+        primaryColor: const Color(0xFF3B4FEB),
+        scaffoldBackgroundColor: Colors.white,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.black,
+          elevation: 0,
+        ),
       ),
       home: const AuthGate(),
     );
@@ -77,7 +82,7 @@ class AuthGate extends ConsumerWidget {
         if (profile.role == UserRole.organizer) {
           return const OrganizerDashboardScreen();
         } else {
-          return const AttendeeExploreScreen();
+          return const AttendeeDiscoverScreen();
         }
       },
       loading: () => const Scaffold(

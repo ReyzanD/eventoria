@@ -1,7 +1,7 @@
+import 'package:eventoria/features/auth/presentation/providers/auth_provider.dart';
 import 'package:eventoria/features/explore/presentation/screens/event_details_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 import '../controller/attendee_events_controller.dart';
 import '../../../events/data/models/event_model.dart';
 
@@ -43,8 +43,17 @@ class _AttendeeExploreScreenState extends ConsumerState<AttendeeExploreScreen> {
           IconButton(
             icon: const Icon(Icons.logout_rounded, color: Colors.redAccent),
             tooltip: 'Sign Out',
-            onPressed: () async {
-              await supabase.Supabase.instance.client.auth.signOut();
+            onPressed: () {
+              ref.read(authControllerProvider.notifier).logout(
+                onError: (err) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Logout failed: $err'),
+                      backgroundColor: Colors.redAccent,
+                    ),
+                  );
+                },
+              );
             },
           ),
         ],

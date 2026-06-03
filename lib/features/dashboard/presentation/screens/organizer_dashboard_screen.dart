@@ -1,206 +1,341 @@
-import 'package:eventoria/features/dashboard/presentation/controller/organizer_events_controller.dart';
+import 'package:eventoria/features/auth/presentation/providers/auth_provider.dart';
+import 'package:eventoria/features/dashboard/presentation/controller/organizer_dashboard_controller.dart';
 import 'package:eventoria/features/dashboard/presentation/screens/create_event_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
+import 'package:riverpod/src/framework.dart';
 
-import '../../../events/data/models/event_model.dart';
+import '../../domain/models/dashboard_view_state.dart';
+import '../../domain/models/event_sales_summary.dart';
 
+import '../widgets/dashboard_metric_card.dart';
+import '../widgets/dashboard_tab_item.dart';
+import '../widgets/next_event_banner.dart';
+import '../widgets/event_list_item.dart';
 
-class OrganizerDashboardScreen extends ConsumerWidget {
+class OrganizerDashboardScreen extends ConsumerStatefulWidget {
   const OrganizerDashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final eventsState = ref.watch(organizerEventsProvider);
+  ConsumerState<OrganizerDashboardScreen> createState() =>
+      _OrganizerDashboardScreenState();
+}
+
+class _OrganizerDashboardScreenState
+    extends ConsumerState<OrganizerDashboardScreen> {
+  int _activeTabIndex = 0;
+  int _bottomNavIndex = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final dashboardState = ref.watch(organizerDashboardProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xfff8fafc),
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         title: const Text(
-          'Organizer Workspace',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          'My events',
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+            fontSize: 28,
+            color: Color(0xFF1E293B),
+          ),
         ),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        backgroundColor: const Color(0xFFF8FAFC),
         elevation: 0,
+        automaticallyImplyLeading: false,
         actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12, top: 10, bottom: 10),
+            child: ElevatedButton.icon(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const CreateEventScreen(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.add, size: 16, color: Colors.white),
+              label: const Text(
+                'New',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFF45E65),
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+              ),
+            ),
+          ),
           IconButton(
-            icon: const Icon(Icons.logout_rounded, color: Colors.redAccent),
+            icon: const Icon(Icons.logout_rounded, color: Color(0xFF717F8C)),
             tooltip: 'Sign Out',
-            onPressed: () async {
-              // FIX: Direct calling of the client-side session disposal routine
-              await supabase.Supabase.instance.client.auth.signOut();
+            onPressed: () {
+              ref
+                  .read(authControllerProvider.notifier)
+                  .logout(
+                    onError: (err) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Logout failed: $err'),
+                          backgroundColor: Colors.redAccent,
+                        ),
+                      );
+                    },
+                  );
             },
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: () => ref.read(organizerEventsProvider.notifier).refresh(),
-        child: eventsState.when(
-          data: (events) {
-            if (events.isEmpty) {
-              return _buildEmptyState(context);
-            }
-            return _buildDashboardContent(events);
-          },
-          loading: () => const Center(
-            child: CircularProgressIndicator(color: Color(0xFF2563EB)),
-          ),
-          error: (err, stack) =>
-              Center(child: Text('Error loading dashboard: $err')),
+      body: _bottomNavIndex == 0
+          ? RefreshIndicator(
+              onRefresh: () async {
+                ref.invalidate(
+                  organizerDashboardProvider.future as ProviderOrFamily,
+                );
+                try {
+                  await ref.read(organizerDashboardProvider.future);
+                } catch (_) {}
+              },
+              child: dashboardState.when(
+                data: (state) => Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 800),
+                    child: _buildDashboardContent(state),
+                  ),
+                ),
+                loading: () => const Center(
+                  child: CircularProgressIndicator(color: Color(0xFF3B4FEB)),
+                ),
+                error: (err, stack) =>
+                    Center(child: Text('Error loading dashboard: $err')),
+              ),
+            )
+          : Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 800),
+                child: _buildPlaceholderTab(),
+              ),
+            ),
+      floatingActionButton: _bottomNavIndex == 0
+          ? FloatingActionButton(
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Scan QR Code feature coming soon!'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              },
+              backgroundColor: const Color(0xFF3B4FEB),
+              shape: const CircleBorder(),
+              child: const Icon(
+                Icons.qr_code_scanner_rounded,
+                color: Colors.white,
+                size: 28,
+              ),
+            )
+          : null,
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: Color(0xFFE2E8F0), width: 1)),
         ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (context) => const CreateEventScreen()),
-          );
-        },
-        backgroundColor: const Color(0xFF2563EB),
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text(
-          'Create Event',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        child: BottomNavigationBar(
+          currentIndex: _bottomNavIndex,
+          onTap: (index) => setState(() => _bottomNavIndex = index),
+          type: BottomNavigationBarType.fixed,
+          backgroundColor: Colors.white,
+          selectedItemColor: const Color(0xFF3B4FEB),
+          unselectedItemColor: const Color(0xFF717F8C),
+          selectedLabelStyle: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 12,
+          ),
+          unselectedLabelStyle: const TextStyle(fontSize: 12),
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.calendar_month_rounded),
+              label: 'Events',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.people_outline_rounded),
+              label: 'Attendees',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.qr_code_rounded),
+              label: 'Scan',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.bar_chart_rounded),
+              label: 'Analytics',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.person_outline_rounded),
+              label: 'Profile',
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildEmptyState(BuildContext context) {
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      children: [
-        SizedBox(height: MediaQuery.of(context).size.height * 0.25),
-        const Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.event_busy_rounded, size: 80, color: Colors.grey),
-              SizedBox(height: 16),
-              Text(
-                'No Events Hosted Yet',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xff1e293b),
-                ),
-              ),
-              SizedBox(height: 8),
-              // FIX: Removed Colors.slate and invalid const references
-              Text(
-                'Tap "Create Event" below to list your first venue!',
-                style: TextStyle(color: Color(0xff64748b)),
-              ),
-            ],
+  Widget _buildPlaceholderTab() {
+    final titles = [
+      'Events',
+      'Attendees',
+      'Scan QR Code',
+      'Analytics',
+      'Profile Settings',
+    ];
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            _bottomNavIndex == 1
+                ? Icons.people_outline_rounded
+                : _bottomNavIndex == 2
+                ? Icons.qr_code_rounded
+                : _bottomNavIndex == 3
+                ? Icons.bar_chart_rounded
+                : Icons.person_outline_rounded,
+            size: 80,
+            color: const Color(0xFF717F8C).withValues(alpha: 0.4),
           ),
+          const SizedBox(height: 16),
+          Text(
+            titles[_bottomNavIndex],
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1E293B),
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'This tab is under development.',
+            style: TextStyle(color: Color(0xFF717F8C)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDashboardContent(DashboardViewState state) {
+    List<EventSalesSummary> currentList = _activeTabIndex == 0
+        ? state.liveEvents
+        : _activeTabIndex == 1
+        ? state.draftEvents
+        : state.pastEvents;
+
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: DashboardMetricCard(
+                label: 'Revenue',
+                value:
+                    '\$${(state.totalRevenue >= 1000 ? '${(state.totalRevenue / 1000).toStringAsFixed(1)}k' : state.totalRevenue.toStringAsFixed(0))}',
+                hasTrend: true,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: DashboardMetricCard(
+                label: 'Tickets sold',
+                value: '${state.totalTicketsSold}',
+                hasTrend: false,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: DashboardMetricCard(
+                label: 'Conversion',
+                value: '${state.conversionRate.toStringAsFixed(1)}%',
+                hasTrend: false,
+              ),
+            ),
+          ],
         ),
+        const SizedBox(height: 24),
+        Row(
+          children: [
+            DashboardTabItem(
+              label: 'Live',
+              isSelected: _activeTabIndex == 0,
+              onTap: () => setState(() => _activeTabIndex = 0),
+            ),
+            DashboardTabItem(
+              label: 'Drafts',
+              isSelected: _activeTabIndex == 1,
+              onTap: () => setState(() => _activeTabIndex = 1),
+            ),
+            DashboardTabItem(
+              label: 'Past',
+              isSelected: _activeTabIndex == 2,
+              onTap: () => setState(() => _activeTabIndex = 2),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        if (currentList.isEmpty)
+          _buildEmptyListState()
+        else
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: currentList.length,
+            itemBuilder: (context, index) {
+              return EventListItem(summary: currentList[index], onTap: () {});
+            },
+          ),
+
+        const SizedBox(height: 16),
+        if (state.nextEvent != null) NextEventBanner(event: state.nextEvent!),
+        const SizedBox(height: 40),
       ],
     );
   }
 
-  Widget _buildDashboardContent(List<EventModel> events) {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: events.length + 1,
-      itemBuilder: (context, index) {
-        if (index == 0) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 24),
-            child: Card(
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              color: const Color(0xff1e293b),
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Total Scheduled Events',
-                      style: TextStyle(color: Colors.white70, fontSize: 14),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${events.length}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
+  Widget _buildEmptyListState() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 40),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFF1F5F9)),
+      ),
+      child: const Center(
+        child: Column(
+          children: [
+            Icon(Icons.event_busy_outlined, size: 48, color: Color(0xFF717F8C)),
+            SizedBox(height: 12),
+            Text(
+              'No events found',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
+                color: Color(0xFF1E293B),
               ),
             ),
-          );
-        }
-
-        final event = events[index - 1];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
-          ),
-          color: Colors.white,
-          child: ListTile(
-            contentPadding: const EdgeInsets.all(16),
-            leading: Container(
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(
-                color: const Color(0xFF2563EB).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(
-                Icons.festival_rounded,
-                color: Color(0xFF2563EB),
-              ), // FIX: Removed duplicate invalid const keywords here
+            SizedBox(height: 4),
+            Text(
+              'Create a new event to show up here.',
+              style: TextStyle(color: Color(0xFF717F8C), fontSize: 13),
             ),
-            title: Text(
-              event.title,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 4),
-                // FIX: Removed Colors.slate
-                Text(
-                  event.venueName,
-                  style: const TextStyle(color: Color(0xff64748b)),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '${event.startDate.day}/${event.startDate.month}/${event.startDate.year}',
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-              ],
-            ),
-            trailing: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: event.isPublished
-                    ? Colors.green.withValues(alpha: 0.1)
-                    : Colors.orange.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                event.isPublished ? 'Live' : 'Draft',
-                style: TextStyle(
-                  color: event.isPublished ? Colors.green : Colors.orange,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                ),
-              ),
-            ),
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
   }
 }

@@ -1,4 +1,5 @@
 import '../../domain/entities/event_entity.dart';
+import 'ticket_model.dart';
 
 class EventModel extends EventEntity {
   EventModel({
@@ -16,6 +17,7 @@ class EventModel extends EventEntity {
     required super.isPublished,
     required super.allowRefunds,
     required super.createdAt,
+    super.ticketTiers,
   });
 
   factory EventModel.fromJson(Map<String, dynamic> json) {
@@ -39,6 +41,11 @@ class EventModel extends EventEntity {
       isPublished: json['is_published'] as bool,
       allowRefunds: json['allow_refunds'] as bool,
       createdAt: DateTime.parse(json['created_at'] as String),
+      ticketTiers: json['ticket_tiers'] != null
+          ? (json['ticket_tiers'] as List)
+              .map((tierJson) => TicketModel.fromJson(tierJson))
+              .toList()
+          : null,
     );
   }
 
