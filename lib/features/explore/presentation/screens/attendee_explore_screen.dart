@@ -44,16 +44,18 @@ class _AttendeeExploreScreenState extends ConsumerState<AttendeeExploreScreen> {
             icon: const Icon(Icons.logout_rounded, color: Colors.redAccent),
             tooltip: 'Sign Out',
             onPressed: () {
-              ref.read(authControllerProvider.notifier).logout(
-                onError: (err) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Logout failed: $err'),
-                      backgroundColor: Colors.redAccent,
-                    ),
+              ref
+                  .read(authControllerProvider.notifier)
+                  .logout(
+                    onError: (err) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Logout failed: $err'),
+                          backgroundColor: Colors.redAccent,
+                        ),
+                      );
+                    },
                   );
-                },
-              );
             },
           ),
         ],

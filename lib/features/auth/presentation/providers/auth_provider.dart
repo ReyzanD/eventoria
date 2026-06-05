@@ -46,6 +46,7 @@ class AuthController extends _$AuthController {
     required VoidCallback onSuccess,
   }) async {
     state = const AsyncValue.loading();
+
     final result = await _repository.signUp(
       email: email,
       password: password,
@@ -54,11 +55,16 @@ class AuthController extends _$AuthController {
       createdAt: DateTime.now(),
     );
 
-    result.fold((failure) {
-      onError(failure.message);
-      state = AsyncValue.error(failure.message, StackTrace.current);
-    }, (profile) => state = AsyncValue.data(profile));
-    onSuccess();
+    result.fold(
+      (failure) {
+        onError(failure.message);
+        state = AsyncValue.error(failure.message, StackTrace.current);
+      },
+      (profile) {
+        state = AsyncValue.data(profile);
+        onSuccess();
+      },
+    );
   }
 
   Future<void> logout({required Function(String) onError}) async {

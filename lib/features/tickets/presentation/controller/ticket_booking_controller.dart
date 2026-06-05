@@ -1,58 +1,57 @@
-import 'dart:math';
-import 'package:eventoria/features/events/data/models/ticket_model.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:riverpod/legacy.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
+import '../../../../core/network/supabase_config.dart';
+import '../../../events/data/models/ticket_model.dart';
+import '../../data/repositories/ticket_repository_provider.dart';
 
-final eventTiersProvider = FutureProvider.family
-    .autoDispose<List<TicketModel>, String>((ref, eventId) async {
-      final client = Supabase.instance.client;
-      final response = await client
-          .from('ticket_tiers')
-          .select()
-          .eq('event_id', eventId)
-          .order('price', ascending: true);
-      return (response as List)
-          .map((json) => TicketModel.fromJson(json))
-          .toList();
-    });
+part 'ticket_booking_controller.g.dart';
 
-final ticketBookingProvider =
-    StateNotifierProvider.autoDispose<
-      TicketBookingController,
-      AsyncValue<void>
-    >((ref) {
-      return TicketBookingController();
-    });
+// 1. Upgraded your tiers fetcher to the modern Riverpod syntax
+@riverpod
+Future<List<TicketModel>> eventTiers(Ref ref, String eventId) async {
+  // We use the injected Supabase client instead of the direct instance
+  final client = ref.watch(supabaseProvider);
 
-class TicketBookingController extends StateNotifier<AsyncValue<void>> {
-  final _client = Supabase.instance.client;
+  final response = await client
+      .from('ticket_tiers')
+      .select()
+      .eq('event_id', eventId)
+      .order('price', ascending: true);
 
-  TicketBookingController() : super(const AsyncValue.data(null));
+  return (response as List).map((json) => TicketModel.fromJson(json)).toList();
+}
+
+// 2. Upgraded your StateNotifier to the modern Notifier syntax
+@riverpod
+class TicketBookingController extends _$TicketBookingController {
+  @override
+  AsyncValue<void> build() {
+    return const AsyncData(null);
+  }
 
   Future<bool> bookTicket(String eventId, String ticketTierId) async {
-    state = const AsyncValue.loading();
+    state = const AsyncLoading();
+
     try {
-      final user = _client.auth.currentUser;
+      // Get the injected Supabase client to check auth
+      final client = ref.read(supabaseProvider);
+      final user = client.auth.currentUser;
+
       if (user == null) throw Exception('User not Logged In');
 
-      final randomString = List.generate(
-        6,
-        (_) => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'[Random().nextInt(36)],
-      ).join();
-      final orderNumber = 'ORD-$randomString';
+      // Grab the worker (Repository) we built earlier
+      final repository = ref.read(getTicketRepositoryProvider);
 
-      await _client.from('tickets').insert({
-        'ticket_tier_id': ticketTierId,
-        'event_id': eventId,
-        'attendee_id': user.id,
-        'order_number': orderNumber,
-      });
+      // The repository handles the order number generation and the Supabase insertion!
+      await repository.purchaseTicket(
+        eventId: eventId,
+        tierId: ticketTierId,
+        attendeeId: user.id,
+      );
 
-      state = const AsyncValue.data(null);
+      state = const AsyncData(null);
       return true;
     } catch (e, stackTrace) {
-      state = AsyncValue.error(e, stackTrace);
+      state = AsyncError(e, stackTrace);
       return false;
     }
   }

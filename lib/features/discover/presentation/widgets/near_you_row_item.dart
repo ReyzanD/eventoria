@@ -6,6 +6,7 @@ class NearYouRowItem extends StatelessWidget {
   final String imageUrl;
   final String date;
   final String location;
+  final VoidCallback? onTap;
 
   const NearYouRowItem({
     super.key,
@@ -13,6 +14,7 @@ class NearYouRowItem extends StatelessWidget {
     required this.imageUrl,
     required this.date,
     required this.location,
+    this.onTap,
   });
 
   @override

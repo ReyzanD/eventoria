@@ -1,3 +1,4 @@
+import 'package:eventoria/features/explore/presentation/screens/event_details_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/attendee_theme.dart';
@@ -249,17 +250,16 @@ class _AttendeeDiscoverScreenState
               fontWeight: FontWeight.w900,
             ),
           ),
-          if (email.isNotEmpty) ...
-            [
-              const SizedBox(height: 4),
-              Text(
-                email,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.5),
-                  fontSize: 14,
-                ),
+          if (email.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              email,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.5),
+                fontSize: 14,
               ),
-            ],
+            ),
+          ],
           const SizedBox(height: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -366,10 +366,7 @@ class _AttendeeDiscoverScreenState
           fontWeight: FontWeight.w600,
         ),
       ),
-      trailing: const Icon(
-        Icons.chevron_right_rounded,
-        color: Colors.white30,
-      ),
+      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white30),
       onTap: onTap,
     );
   }
@@ -620,6 +617,14 @@ class _AttendeeDiscoverScreenState
                                   imageUtl: _getEventImage(ev),
                                   date: _formatDate(ev.startDate),
                                   location: ev.venueName,
+                                  onTap: () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            EventDetailsScreen(event: ev),
+                                      ),
+                                    );
+                                  },
                                 );
                               },
                             ),
@@ -641,6 +646,14 @@ class _AttendeeDiscoverScreenState
                                 imageUrl: _getEventImage(ev),
                                 date: _formatDate(ev.startDate),
                                 location: ev.venueName,
+                                onTap: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          EventDetailsScreen(event: ev),
+                                    ),
+                                  );
+                                },
                               );
                             },
                           ),

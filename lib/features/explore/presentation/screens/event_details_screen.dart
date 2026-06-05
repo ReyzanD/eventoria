@@ -1,358 +1,378 @@
-import 'package:eventoria/features/events/data/models/event_model.dart';
-import 'package:eventoria/features/tickets/presentation/controller/ticket_booking_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/theme/attendee_theme.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../events/data/models/event_model.dart'; // Adjust import if you use EventEntity
+import '../../../tickets/presentation/controller/ticket_booking_controller.dart';
 
-import '../../../../core/presentation/widgets/mini_event_map.dart';
-
-class EventDetailsScreen extends ConsumerWidget {
+class EventDetailsScreen extends ConsumerStatefulWidget {
   final EventModel event;
 
   const EventDetailsScreen({super.key, required this.event});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final bookingState = ref.watch(ticketBookingProvider);
-    final isBooking = bookingState is AsyncLoading;
-    final tiersAsync = ref.watch(eventTiersProvider(event.id));
-    final monthNames = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
+  ConsumerState<EventDetailsScreen> createState() => _EventDetailsScreenState();
+}
+
+class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
+  String? _selectedTierId;
+
+  String _formatDate(DateTime date) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
-    final dateStr =
-        '${monthNames[event.startDate.month - 1]} ${event.startDate.day}, ${event.startDate.year}';
-    final timeStr =
-        '${event.startDate.hour.toString().padLeft(2, '0')}:${event.startDate.minute.toString().padLeft(2, '0')}';
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-    return Scaffold(
-      backgroundColor: const Color(0xfff8fafc),
-      appBar: AppBar(
-        title: const Text(
-          'Event Details',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 0,
+    final dayName = days[date.weekday - 1];
+    final monthName = months[date.month - 1];
+    final hour = date.hour > 12
+        ? date.hour - 12
+        : (date.hour == 0 ? 12 : date.hour);
+    final amPm = date.hour >= 12 ? 'PM' : 'AM';
+    final minutes = date.minute.toString().padLeft(2, '0');
+
+    return '$dayName, $monthName ${date.day} • $hour:$minutes $amPm';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // 1. Listen for the booking state to show Success/Error popups
+    ref.listen<AsyncValue>(ticketBookingControllerProvider, (previous, next) {
+      if (next is AsyncError) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to buy ticket: ${next.error}'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      } else if (next is AsyncData && next.value != null && !next.isLoading) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Ticket Purchased Successfully! 🎉'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        Navigator.of(context).pop(); // Go back to feed on success
+      }
+    });
+
+    final bookingState = ref.watch(ticketBookingControllerProvider);
+    final isLoading = bookingState.isLoading;
+
+    // Fetch the ticket tiers from the database
+    final tiersAsync = ref.watch(eventTiersProvider(widget.event.id));
+
+    return Theme(
+      data: ThemeData.dark().copyWith(
+        scaffoldBackgroundColor: AttendeeTheme.bgColor,
       ),
-      body: Center(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            double horizontalPadding = constraints.maxWidth > 700
-                ? (constraints.maxWidth - 650) / 2
-                : 16.0;
-            return ListView(
-              padding: EdgeInsets.symmetric(
-                horizontal: horizontalPadding,
-                vertical: 24,
+      child: Scaffold(
+        backgroundColor: AttendeeTheme.bgColor,
+        body: CustomScrollView(
+          slivers: [
+            // --- HUGE HERO IMAGE APP BAR ---
+            SliverAppBar(
+              expandedHeight: 300,
+              pinned: true,
+              backgroundColor: AttendeeTheme.bgColor,
+              elevation: 0,
+              leading: Container(
+                margin: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.3),
+                  shape: BoxShape.circle,
+                ),
+                child: BackButton(color: Colors.white),
               ),
-              children: [
-                Container(
-                  height: 240,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF2563EB), Color(0xFF4F46E5)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
+              flexibleSpace: FlexibleSpaceBar(
+                background: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.network(
+                      // Replace with widget.event.imageUrl if you have it!
+                      'https://ui-avatars.com/api/?name=Event&background=3B4FEB&color=fff',
+                      fit: BoxFit.cover,
                     ),
-                  ),
-                  child: const Center(
-                    child: Icon(
-                      Icons.festival_rounded,
-                      color: Colors.white24,
-                      size: 80,
+                    Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Colors.transparent, AttendeeTheme.bgColor],
+                          stops: [0.5, 1.0],
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
-                const SizedBox(height: 24),
+              ),
+            ),
 
-                Card(
-                  elevation: 0,
-                  color: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: BorderSide(
-                      color: Colors.grey.withValues(alpha: 0.15),
-                    ),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(
-                              0xFF2563EB,
-                            ).withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            event.category.toUpperCase(),
-                            style: const TextStyle(
-                              color: Color(0xFF2563EB),
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          event.title,
-                          style: const TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xff1e293b),
-                          ),
-                        ),
-                        const Divider(height: 32),
-
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: const CircleAvatar(
-                            backgroundColor: Color(0xfff1f5f9),
-                            child: Icon(
-                              Icons.calendar_month,
-                              color: Color(0xFF2563EB),
-                            ),
-                          ),
-                          title: Text(
-                            dateStr,
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          subtitle: Text('Start At $timeStr Local Time'),
-                        ),
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: const CircleAvatar(
-                            backgroundColor: Color(0xfff1f5f9),
-                            child: Icon(
-                              Icons.place_rounded,
-                              color: Color(0xFF2563EB),
-                            ),
-                          ),
-                          title: Text(
-                            event.venueName,
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          subtitle: Text('Verified Venue Location'),
-                        ),
-                      ],
-                    ),
-                  ),
+            // --- EVENT DETAILS ---
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 16,
                 ),
-                const SizedBox(height: 16),
-
-                Card(
-                  elevation: 0,
-                  color: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: BorderSide(
-                      color: Colors.grey.withValues(alpha: 0.15),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.event.title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.5,
+                      ),
                     ),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'About Event',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          event.description ??
-                              'No extra description provided by the host organizer.',
-                          style: const TextStyle(
-                            color: Color(0xff475569),
-                            height: 1.5,
-                            fontSize: 15,
-                          ),
-                        ),
-                      ],
+                    const SizedBox(height: 16),
+
+                    // Date & Location Info Rows
+                    _buildInfoRow(
+                      Icons.calendar_month_rounded,
+                      _formatDate(widget.event.startDate),
                     ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                Card(
-                  elevation: 0,
-                  color: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: BorderSide(
-                      color: Colors.grey.withValues(alpha: 0.15),
+                    const SizedBox(height: 12),
+                    _buildInfoRow(
+                      Icons.location_on_rounded,
+                      widget.event.venueName,
                     ),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Venue Location',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        MiniEventMap(
-                          latitude: event.latitude,
-                          longitude: event.longitude,
-                          venueName: event.venueName,
-                        ),
-                      ],
+
+                    const SizedBox(height: 32),
+                    const Text(
+                      'About this event',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                // 5. TICKET TIERS SELECTION & BOOKING
-                const Text(
-                  'Available Tickets',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xff1e293b),
-                  ),
-                ),
-                const SizedBox(height: 16),
+                    const SizedBox(height: 12),
+                    Text(
+                      // Replace with widget.event.description if available
+                      'Join us for an amazing experience! Grab your tickets below before they sell out.',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.6),
+                        height: 1.6,
+                        fontSize: 15,
+                      ),
+                    ),
 
-                tiersAsync.when(
-                  loading: () =>
-                      const Center(child: CircularProgressIndicator()),
-                  error: (err, stack) => Text('Error loading tickets: $err'),
-                  data: (tiers) {
-                    if (tiers.isEmpty) {
-                      return const Card(
-                        child: Padding(
-                          padding: EdgeInsets.all(16),
-                          child: Text(
-                            'No tickets available for this event yet.',
-                          ),
+                    const SizedBox(height: 32),
+                    const Text(
+                      'Select Ticket Tier',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // --- TICKET TIERS SELECTOR ---
+                    tiersAsync.when(
+                      loading: () => const Center(
+                        child: CircularProgressIndicator(
+                          color: AttendeeTheme.neonPink,
                         ),
-                      );
-                    }
+                      ),
+                      error: (err, stack) => Text(
+                        'Error loading tickets: $err',
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                      data: (tiers) {
+                        if (tiers.isEmpty) {
+                          return const Text(
+                            'Tickets are not available yet.',
+                            style: TextStyle(color: Colors.grey),
+                          );
+                        }
+                        return Column(
+                          children: tiers.map((tier) {
+                            final isSelected = _selectedTierId == tier.id;
+                            final isSoldOut =
+                                tier.ticketsSold >= tier.totalCapacity;
 
-                    return Column(
-                      children: tiers.map((tier) {
-                        final isSoldOut =
-                            tier.ticketsSold >= tier.totalCapacity;
-
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            side: BorderSide(
-                              color: isSoldOut
-                                  ? Colors.red.withValues(alpha: 0.3)
-                                  : const Color(
-                                      0xFF2563EB,
-                                    ).withValues(alpha: 0.3),
-                            ),
-                          ),
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
-                            ),
-                            title: Text(
-                              tier.name,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            subtitle: Text(
-                              '${tier.totalCapacity - tier.ticketsSold} tickets remaining',
-                            ),
-                            trailing: ElevatedButton(
-                              onPressed: isSoldOut || isBooking
+                            return GestureDetector(
+                              onTap: isSoldOut
                                   ? null
-                                  : () async {
-                                      final success = await ref
-                                          .read(ticketBookingProvider.notifier)
-                                          .bookTicket(event.id, tier.id);
-
-                                      if (!context.mounted) return;
-
-                                      if (success) {
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          const SnackBar(
-                                            content: Text(
-                                              'Ticket Booked Successfully! 🎉',
-                                            ),
-                                            backgroundColor: Colors.green,
-                                          ),
-                                        );
-                                        Navigator.of(context).pop();
-                                      } else {
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          const SnackBar(
-                                            content: Text(
-                                              'Failed to book ticket.',
-                                            ),
-                                            backgroundColor: Colors.redAccent,
-                                          ),
-                                        );
-                                      }
+                                  : () {
+                                      setState(() {
+                                        _selectedTierId = tier.id;
+                                      });
                                     },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: isSoldOut
-                                    ? Colors.grey
-                                    : const Color(0xFF2563EB),
-                                foregroundColor: Colors.white,
-                              ),
-                              child: isBooking
-                                  ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                        color: Colors.white,
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : Text(
-                                      tier.price == 0
-                                          ? 'FREE'
-                                          : '\$${tier.price.toStringAsFixed(2)}',
+                              child: Container(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: AttendeeTheme.cardColor,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? AttendeeTheme.neonPink
+                                        : Colors.white.withValues(alpha: 0.1),
+                                    width: isSelected ? 2 : 1,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          tier.name,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          isSoldOut
+                                              ? 'Sold Out'
+                                              : '${tier.totalCapacity - tier.ticketsSold} left',
+                                          style: TextStyle(
+                                            color: isSoldOut
+                                                ? Colors.redAccent
+                                                : Colors.grey,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                            ),
-                          ),
+                                    Text(
+                                      '\$${tier.price.toStringAsFixed(2)}',
+                                      style: TextStyle(
+                                        color: isSelected
+                                            ? AttendeeTheme.neonPink
+                                            : Colors.white,
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 18,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }).toList(),
                         );
-                      }).toList(),
-                    );
-                  },
+                      },
+                    ),
+                    const SizedBox(height: 100), // Padding for bottom bar
+                  ],
                 ),
-                const SizedBox(height: 32),
-              ],
-            );
-          },
+              ),
+            ),
+          ],
+        ),
+
+        // --- STICKY BOTTOM BUY BUTTON ---
+        bottomSheet: Container(
+          color: AttendeeTheme.bgColor,
+          padding: const EdgeInsets.only(
+            left: 24,
+            right: 24,
+            bottom: 32,
+            top: 16,
+          ),
+          child: SizedBox(
+            width: double.infinity,
+            height: 56,
+            child: ElevatedButton(
+              onPressed: (_selectedTierId == null || isLoading)
+                  ? null
+                  : () {
+                      final currentUserId = ref
+                          .read(authControllerProvider)
+                          .value
+                          ?.id;
+                      if (currentUserId == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Please log in first!')),
+                        );
+                        return;
+                      }
+
+                      ref
+                          .read(ticketBookingControllerProvider.notifier)
+                          .bookTicket(widget.event.id, _selectedTierId!);
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AttendeeTheme.neonPink,
+                disabledBackgroundColor: Colors.white.withValues(alpha: 0.1),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              child: isLoading
+                  ? const SizedBox(
+                      height: 24,
+                      width: 24,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : Text(
+                      _selectedTierId == null
+                          ? 'Select a Ticket'
+                          : 'Buy Ticket',
+                      style: TextStyle(
+                        color: _selectedTierId == null
+                            ? Colors.white54
+                            : Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+            ),
+          ),
         ),
       ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String text) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: AttendeeTheme.electricBlue, size: 20),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

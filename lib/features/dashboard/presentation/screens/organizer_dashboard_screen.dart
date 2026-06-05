@@ -1,10 +1,11 @@
 import 'package:eventoria/features/auth/presentation/providers/auth_provider.dart';
 import 'package:eventoria/features/dashboard/presentation/controller/organizer_dashboard_controller.dart';
 import 'package:eventoria/features/dashboard/presentation/screens/create_event_screen.dart';
+import 'package:eventoria/features/dashboard/presentation/screens/organizer_event_details_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:riverpod/src/framework.dart';
 
+import '../../../attendees/presentation/screens/organizer_all_attendees_screen.dart';
 import '../../domain/models/dashboard_view_state.dart';
 import '../../domain/models/event_sales_summary.dart';
 
@@ -33,9 +34,15 @@ class _OrganizerDashboardScreenState
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text(
-          'My events',
-          style: TextStyle(
+        title: Text(
+          switch (_bottomNavIndex) {
+            0 => 'My Events',
+            1 => 'All Attendees',
+            2 => 'Scan QR Code',
+            3 => 'Analytics',
+            _ => 'Profile',
+          },
+          style: const TextStyle(
             fontWeight: FontWeight.w900,
             fontSize: 28,
             color: Color(0xFF1E293B),
@@ -45,35 +52,36 @@ class _OrganizerDashboardScreenState
         elevation: 0,
         automaticallyImplyLeading: false,
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12, top: 10, bottom: 10),
-            child: ElevatedButton.icon(
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => const CreateEventScreen(),
+          if (_bottomNavIndex == 0)
+            Padding(
+              padding: const EdgeInsets.only(right: 12, top: 10, bottom: 10),
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const CreateEventScreen(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.add, size: 16, color: Colors.white),
+                label: const Text(
+                  'New',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
                   ),
-                );
-              },
-              icon: const Icon(Icons.add, size: 16, color: Colors.white),
-              label: const Text(
-                'New',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
                 ),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFF45E65),
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFF45E65),
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 16),
               ),
             ),
-          ),
           IconButton(
             icon: const Icon(Icons.logout_rounded, color: Color(0xFF717F8C)),
             tooltip: 'Sign Out',
@@ -94,36 +102,39 @@ class _OrganizerDashboardScreenState
           ),
         ],
       ),
-      body: _bottomNavIndex == 0
-          ? RefreshIndicator(
-              onRefresh: () async {
-                ref.invalidate(
-                  organizerDashboardProvider.future as ProviderOrFamily,
-                );
-                try {
-                  await ref.read(organizerDashboardProvider.future);
-                } catch (_) {}
-              },
-              child: dashboardState.when(
-                data: (state) => Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 800),
-                    child: _buildDashboardContent(state),
-                  ),
-                ),
-                loading: () => const Center(
-                  child: CircularProgressIndicator(color: Color(0xFF3B4FEB)),
-                ),
-                error: (err, stack) =>
-                    Center(child: Text('Error loading dashboard: $err')),
-              ),
-            )
-          : Center(
+      // --- UPDATED BODY LOGIC HERE ---
+      body: switch (_bottomNavIndex) {
+        0 => RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(organizerDashboardProvider);
+            try {
+              await ref.read(organizerDashboardProvider.future);
+            } catch (_) {}
+          },
+          child: dashboardState.when(
+            data: (state) => Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 800),
-                child: _buildPlaceholderTab(),
+                child: _buildDashboardContent(state),
               ),
             ),
+            loading: () => const Center(
+              child: CircularProgressIndicator(color: Color(0xFF3B4FEB)),
+            ),
+            error: (err, stack) =>
+                Center(child: Text('Error loading dashboard: $err')),
+          ),
+        ),
+        1 => const OrganizerAllAttendeesScreen(), // <-- Your new screen!
+        _ => Center(
+          // <-- Fallback for Scan, Analytics, and Profile
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 800),
+            child: _buildPlaceholderTab(),
+          ),
+        ),
+      },
+      // -------------------------------
       floatingActionButton: _bottomNavIndex == 0
           ? FloatingActionButton(
               onPressed: () {
@@ -296,7 +307,18 @@ class _OrganizerDashboardScreenState
             physics: const NeverScrollableScrollPhysics(),
             itemCount: currentList.length,
             itemBuilder: (context, index) {
-              return EventListItem(summary: currentList[index], onTap: () {});
+              final summaryItem = currentList[index];
+              return EventListItem(
+                summary: summaryItem,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          OrganizerEventDetailsScreen(summary: summaryItem),
+                    ),
+                  );
+                },
+              );
             },
           ),
 
