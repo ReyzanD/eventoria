@@ -1,5 +1,5 @@
+import 'package:eventoria/features/dashboard/presentation/screens/attendee_dashboard_screen.dart';
 import 'package:eventoria/features/dashboard/presentation/screens/organizer_dashboard_screen.dart';
-import 'package:eventoria/features/discover/presentation/screens/attendee_discover_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -82,7 +82,7 @@ class AuthGate extends ConsumerWidget {
         if (profile.role == UserRole.organizer) {
           return const OrganizerDashboardScreen();
         } else {
-          return const AttendeeDiscoverScreen();
+          return const AttendeeDashboardScreen();
         }
       },
       loading: () => const Scaffold(

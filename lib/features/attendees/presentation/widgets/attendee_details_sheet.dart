@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import '../../domain/entities/organizer_attendee_entity.dart';
 
 void showAttendeeDetailsSheet(
-  BuildContext context,
-  OrganizerAttendeeEntity attendee,
+  BuildContext context,{
+  required OrganizerAttendeeEntity attendee,
+  required String eventId,
+  required String eventTitle,
+  }
 ) {
   showModalBottomSheet(
     context: context,
@@ -12,14 +15,19 @@ void showAttendeeDetailsSheet(
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
-    builder: (context) => AttendeeDetailsSheet(attendee: attendee),
+    builder: (context) => AttendeeDetailsSheet(attendee: attendee, eventTitle: eventTitle),
   );
 }
 
 class AttendeeDetailsSheet extends StatelessWidget {
   final OrganizerAttendeeEntity attendee;
+  final String eventTitle;
 
-  const AttendeeDetailsSheet({super.key, required this.attendee});
+  const AttendeeDetailsSheet({
+    super.key,
+    required this.attendee,
+    required this.eventTitle,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -80,7 +88,7 @@ class AttendeeDetailsSheet extends StatelessWidget {
                 ),
               ],
             ),
-            DetailRow(label: 'Event', value: attendee.eventName),
+            DetailRow(label: 'Event', value: eventTitle),
             DetailRow(label: 'Ticket type', value: attendee.ticketType),
             DetailRow(label: 'Order code', value: attendee.orderCode),
             DetailRow(

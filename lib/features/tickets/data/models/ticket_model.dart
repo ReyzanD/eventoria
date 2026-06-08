@@ -13,6 +13,8 @@ class TicketModel extends TicketEntity {
     required super.isCheckedIn,
     super.checkedInAt,
     required super.createdAt,
+    super.eventName,
+    super.ticketTierName,
   });
 
   factory TicketModel.fromJson(Map<String, dynamic> json) {
@@ -30,6 +32,8 @@ class TicketModel extends TicketEntity {
           ? DateTime.parse(json['checked_in_at'] as String)
           : null,
       createdAt: DateTime.parse(json['created_at'] as String),
+      eventName: json['events']?['title'] as String?,
+      ticketTierName: json['ticket_tiers']?['name'] as String?,
     );
   }
 }

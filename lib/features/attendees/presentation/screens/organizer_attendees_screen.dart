@@ -80,8 +80,6 @@ class _OrganizerAttendeesScreenState
             ? const Center(
                 child: CircularProgressIndicator(color: Color(0xFF3B4FEB)),
               )
-            : attendeesState.errorMessage != null
-            ? _buildErrorState(attendeesState.errorMessage!)
             : ListView(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
@@ -218,8 +216,12 @@ class _OrganizerAttendeesScreenState
                         padding: const EdgeInsets.only(bottom: 12),
                         child: AttendeeCard(
                           attendee: attendee,
-                          onTap: () =>
-                              showAttendeeDetailsSheet(context, attendee),
+                          onTap: () => showAttendeeDetailsSheet(
+                            context,
+                            attendee: attendee,
+                            eventId: widget.eventId,
+                            eventTitle: widget.eventTitle,
+                          ),
                           onCheckIn: attendee.checkedIn
                               ? null
                               : () {
@@ -271,75 +273,6 @@ class _OrganizerAttendeesScreenState
             style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildErrorState(String error) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-              ),
-              child: Column(
-                children: [
-                  const Icon(
-                    Icons.error_outline_rounded,
-                    size: 48,
-                    color: Color(0xFFF45E65),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Failed to load attendees',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF1E293B),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    error.contains('permission denied') ||
-                            error.contains('RLS') ||
-                            error.contains('policy')
-                        ? 'Permission denied. Make sure your Supabase RLS policy allows organizers to read tickets for their events.'
-                        : error,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Color(0xFF64748B),
-                      fontSize: 13,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton.icon(
-                    onPressed: () => ref
-                        .read(
-                          attendeesControllerProvider(widget.eventId).notifier,
-                        )
-                        .retry(),
-                    icon: const Icon(Icons.refresh_rounded, size: 18),
-                    label: const Text('Retry'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF3B4FEB),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

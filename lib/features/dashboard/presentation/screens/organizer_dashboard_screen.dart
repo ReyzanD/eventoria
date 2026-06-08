@@ -1,4 +1,6 @@
+import 'package:eventoria/features/analytics/presentation/screens/organizer_analytics_screen.dart';
 import 'package:eventoria/features/auth/presentation/providers/auth_provider.dart';
+import 'package:eventoria/features/auth/presentation/screens/organizer_profile_screen.dart';
 import 'package:eventoria/features/dashboard/presentation/controller/organizer_dashboard_controller.dart';
 import 'package:eventoria/features/dashboard/presentation/screens/create_event_screen.dart';
 import 'package:eventoria/features/dashboard/presentation/screens/organizer_event_details_screen.dart';
@@ -8,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../attendees/presentation/screens/organizer_all_attendees_screen.dart';
 import '../../domain/models/dashboard_view_state.dart';
 import '../../domain/models/event_sales_summary.dart';
+import 'organizer_scanner_screen.dart';
 
 import '../widgets/dashboard_metric_card.dart';
 import '../widgets/dashboard_tab_item.dart';
@@ -125,9 +128,11 @@ class _OrganizerDashboardScreenState
                 Center(child: Text('Error loading dashboard: $err')),
           ),
         ),
-        1 => const OrganizerAllAttendeesScreen(), // <-- Your new screen!
+        1 => const OrganizerAllAttendeesScreen(),
+        2 => const OrganizerScannerScreen(),
+        3 => const OrganizerAnalyticsScreen(),
+        4 => const OrganizerProfileScreen(),
         _ => Center(
-          // <-- Fallback for Scan, Analytics, and Profile
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 800),
             child: _buildPlaceholderTab(),
@@ -138,12 +143,8 @@ class _OrganizerDashboardScreenState
       floatingActionButton: _bottomNavIndex == 0
           ? FloatingActionButton(
               onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Scan QR Code feature coming soon!'),
-                    duration: Duration(seconds: 2),
-                  ),
-                );
+                // <-- CHANGED TO SWITCH TO SCAN TAB
+                setState(() => _bottomNavIndex = 2);
               },
               backgroundColor: const Color(0xFF3B4FEB),
               shape: const CircleBorder(),

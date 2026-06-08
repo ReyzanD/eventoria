@@ -308,7 +308,14 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
           Align(
             alignment: Alignment.centerRight,
             child: TextButton(
-              onPressed: () {},
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Forgot Password flow is not implemented in this demo.'),
+                    backgroundColor: Colors.redAccent,
+                  ),
+                );
+              },
               child: const Text(
                 'Forgot Password?',
                 style: TextStyle(color: Color(0xFF3B4FEB)),

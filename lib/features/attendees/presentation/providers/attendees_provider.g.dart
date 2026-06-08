@@ -59,7 +59,7 @@ final class AttendeesControllerProvider
 }
 
 String _$attendeesControllerHash() =>
-    r'87495ae81ba0fcb80b7a9ef42dc4c57d90a1d6f7';
+    r'1f4fd94caf0697dd69e22a508843d279be9c972c';
 
 final class AttendeesControllerFamily extends $Family
     with

@@ -10,6 +10,8 @@ class TicketEntity {
   final bool isCheckedIn;
   final DateTime? checkedInAt;
   final DateTime createdAt;
+  final String? eventName;
+  final String? ticketTierName;
 
   const TicketEntity({
     required this.id,
@@ -23,5 +25,7 @@ class TicketEntity {
     required this.isCheckedIn,
     this.checkedInAt,
     required this.createdAt,
+    this.eventName,
+    this.ticketTierName,
   });
 }

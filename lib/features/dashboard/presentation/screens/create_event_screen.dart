@@ -12,6 +12,7 @@ import '../widgets/create_event/event_date_time_pickers.dart';
 import '../widgets/create_event/event_location_map.dart';
 import '../widgets/create_event/event_ticket_tiers.dart';
 import '../widgets/create_event/event_title_and_category.dart';
+import '../../../../core/widgets/shared_app_bar.dart';
 
 class CreateEventScreen extends ConsumerStatefulWidget {
   const CreateEventScreen({super.key});
@@ -231,15 +232,8 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text(
-          'Create event',
-          style: TextStyle(
-            fontWeight: FontWeight.w900,
-            fontSize: 20,
-            color: Color(0xFF1E293B),
-          ),
-        ),
+      appBar: SharedAppBar(
+        title: 'Create event',
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Color(0xFF3B4FEB)),

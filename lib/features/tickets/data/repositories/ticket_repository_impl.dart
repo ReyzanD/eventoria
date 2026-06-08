@@ -49,6 +49,23 @@ class TicketRepositoryImpl implements TicketRepository {
     }
   }
 
+  @override
+  Future<List<TicketEntity>> getMyTickets(String attendeeId) async {
+    try {
+      final List<dynamic> response = await _supabase
+          .from('tickets')
+          .select('*, events(title), ticket_tiers(name)')
+          .eq('attendee_id', attendeeId)
+          .order('created_at', ascending: false);
+
+      return response
+          .map((json) => TicketModel.fromJson(json as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      throw Exception('Failed to fetch your tickets: $e');
+    }
+  }
+
   String _generateOrderNumber() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     final rnd = Random();
@@ -56,5 +73,30 @@ class TicketRepositoryImpl implements TicketRepository {
       Iterable.generate(5, (_) => chars.codeUnitAt(rnd.nextInt(chars.length))),
     );
     return 'ORD-$randomString';
+  }
+
+  @override
+  Future<void> checkInTicket(String ticketId) async {
+    try {
+      final ticket = await _supabase
+          .from('tickets')
+          .select('is_checked_in')
+          .eq('id', ticketId)
+          .single();
+
+      if (ticket['is_checked_in'] == true) {
+        throw Exception('This ticket has already been checked in!');
+      }
+
+      await _supabase
+          .from('tickets')
+          .update({
+            'is_checked_in': true,
+            'checked_in_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', ticketId);
+    } catch (e) {
+      throw Exception('Scan failed: $e');
+    }
   }
 }

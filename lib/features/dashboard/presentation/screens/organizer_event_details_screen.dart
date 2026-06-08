@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../attendees/presentation/screens/organizer_attendees_screen.dart';
 import '../../domain/models/event_sales_summary.dart';
 import '../../../tickets/presentation/controller/ticket_booking_controller.dart';
+import '../../../../core/widgets/shared_app_bar.dart';
 
 class OrganizerEventDetailsScreen extends ConsumerWidget {
   final EventSalesSummary summary;
@@ -37,18 +38,11 @@ class OrganizerEventDetailsScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFF8FAFC),
-        elevation: 0,
+      appBar: SharedAppBar(
         leading: const BackButton(color: Color(0xFF1E293B)),
-        title: const Text(
-          'Manage Event',
-          style: TextStyle(
-            color: Color(0xFF1E293B),
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-          ),
-        ),
+        title: 'Manage Event',
+        titleFontSize: 18,
+        titleFontWeight: FontWeight.bold,
         actions: [
           IconButton(
             icon: const Icon(Icons.edit_outlined, color: Color(0xFF717F8C)),

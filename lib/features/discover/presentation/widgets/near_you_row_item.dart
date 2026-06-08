@@ -92,7 +92,14 @@ class NearYouRowItem extends StatelessWidget {
               Icons.bookmark_border_rounded,
               color: Colors.white70,
             ),
-            onPressed: () {},
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Bookmarks coming soon!'),
+                  backgroundColor: AttendeeTheme.electricBlue,
+                ),
+              );
+            },
           ),
         ],
       ),
