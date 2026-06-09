@@ -1,4 +1,4 @@
-enum UserRole { attendee, organizer }
+enum UserRole { attendee, organizer, admin }
 
 class ProfileEntity {
   final String id;
@@ -7,6 +7,7 @@ class ProfileEntity {
   final String? avatarUrl;
   final UserRole role;
   final DateTime createdAt;
+  final bool isVerified;
 
   const ProfileEntity({
     required this.id,
@@ -15,5 +16,6 @@ class ProfileEntity {
     this.avatarUrl,
     required this.role,
     required this.createdAt,
+    this.isVerified = false,
   });
 }

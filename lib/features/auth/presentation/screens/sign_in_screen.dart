@@ -16,7 +16,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _showEmailForm = false;
-
+  bool _isSubmitting = false;
   @override
   void dispose() {
     _emailController.dispose();
@@ -24,30 +24,30 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
     super.dispose();
   }
 
-  void _handleSignIn() {
-    if (_formKey.currentState!.validate()) {
-      ref
-          .read(authControllerProvider.notifier)
-          .login(
-            _emailController.text.trim(),
-            _passwordController.text.trim(),
-            onError: (errorMessage) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(errorMessage),
-                  backgroundColor: Colors.redAccent,
-                ),
-              );
-            },
-          );
-    }
+  Future<void> _handleSignIn() async {
+    if (!_formKey.currentState!.validate() || _isSubmitting) return;
+    setState(() => _isSubmitting = true);
+    await ref
+        .read(authControllerProvider.notifier)
+        .login(
+          _emailController.text.trim(),
+          _passwordController.text.trim(),
+          onError: (errorMessage) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(errorMessage),
+                backgroundColor: Colors.redAccent,
+              ),
+            );
+          },
+        );
+    if (!mounted) return;
+    setState(() => _isSubmitting = false);
   }
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authControllerProvider);
-    final isLoading = authState.isLoading;
-
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -60,7 +60,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 250),
                   child: _showEmailForm
-                      ? _buildEmailForm(isLoading)
+                      ? _buildEmailForm(_isSubmitting)
                       : _buildWelcomeContent(),
                 ),
               ),
@@ -98,10 +98,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
           ),
           child: const Text(
             'Continue with email',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
         ),
         const SizedBox(height: 16),
@@ -127,17 +124,11 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
           child: const Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              CustomPaint(
-                size: Size(20, 20),
-                painter: GoogleLogoPainter(),
-              ),
+              CustomPaint(size: Size(20, 20), painter: GoogleLogoPainter()),
               SizedBox(width: 12),
               Text(
                 'Continue with Google',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -166,17 +157,11 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
           child: const Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              CustomPaint(
-                size: Size(20, 20),
-                painter: AppleLogoPainter(),
-              ),
+              CustomPaint(size: Size(20, 20), painter: AppleLogoPainter()),
               SizedBox(width: 12),
               Text(
                 'Continue with Apple',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -290,9 +275,8 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                       : Icons.visibility_outlined,
                   color: const Color(0xFF717F8C),
                 ),
-                onPressed: () => setState(
-                  () => _obscurePassword = !_obscurePassword,
-                ),
+                onPressed: () =>
+                    setState(() => _obscurePassword = !_obscurePassword),
               ),
             ),
             validator: (value) {
@@ -311,7 +295,9 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
               onPressed: () {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Forgot Password flow is not implemented in this demo.'),
+                    content: Text(
+                      'Forgot Password flow is not implemented in this demo.',
+                    ),
                     backgroundColor: Colors.redAccent,
                   ),
                 );
@@ -329,7 +315,9 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
             onPressed: isLoading ? null : _handleSignIn,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFF45E65),
-              disabledBackgroundColor: const Color(0xFFF45E65).withValues(alpha: 0.5),
+              disabledBackgroundColor: const Color(
+                0xFFF45E65,
+              ).withValues(alpha: 0.5),
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(30),
@@ -367,9 +355,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
               GestureDetector(
                 onTap: () {
                   Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const SignUpScreen(),
-                    ),
+                    MaterialPageRoute(builder: (_) => const SignUpScreen()),
                   );
                 },
                 child: const Text(
@@ -538,17 +524,29 @@ class AppleLogoPainter extends CustomPainter {
     final double h = size.height;
 
     // Body (two ovals overlapped)
-    canvas.drawOval(Rect.fromLTWH(w * 0.15, h * 0.25, w * 0.42, h * 0.6), paint);
-    canvas.drawOval(Rect.fromLTWH(w * 0.43, h * 0.25, w * 0.42, h * 0.6), paint);
+    canvas.drawOval(
+      Rect.fromLTWH(w * 0.15, h * 0.25, w * 0.42, h * 0.6),
+      paint,
+    );
+    canvas.drawOval(
+      Rect.fromLTWH(w * 0.43, h * 0.25, w * 0.42, h * 0.6),
+      paint,
+    );
 
     // Bottom indent (small white oval covering the bottom seam)
     final Paint cutPaint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.fill;
-    canvas.drawOval(Rect.fromLTWH(w * 0.42, h * 0.78, w * 0.16, h * 0.1), cutPaint);
+    canvas.drawOval(
+      Rect.fromLTWH(w * 0.42, h * 0.78, w * 0.16, h * 0.1),
+      cutPaint,
+    );
 
     // Top indent (small white oval covering the top seam)
-    canvas.drawOval(Rect.fromLTWH(w * 0.42, h * 0.18, w * 0.16, h * 0.1), cutPaint);
+    canvas.drawOval(
+      Rect.fromLTWH(w * 0.42, h * 0.18, w * 0.16, h * 0.1),
+      cutPaint,
+    );
 
     // Leaf
     final Path leafPath = Path();

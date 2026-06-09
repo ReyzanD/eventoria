@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/repositories/auth_repository_impl.dart';
@@ -28,13 +28,17 @@ class AuthController extends _$AuthController {
     String password, {
     required Function(String) onError,
   }) async {
-    state = const AsyncValue.loading();
     final result = await _repository.signIn(email: email, password: password);
 
-    result.fold((failure) {
-      onError(failure.message);
-      state = AsyncValue.error(failure.message, StackTrace.current);
-    }, (profile) => state = AsyncValue.data(profile));
+    result.fold(
+      (failure) {
+        onError(failure.message);
+        state = const AsyncValue.data(null);
+      },
+      (profile) {
+        state = AsyncValue.data(profile);
+      },
+    );
   }
 
   Future<void> register({
@@ -45,8 +49,6 @@ class AuthController extends _$AuthController {
     required Function(String) onError,
     required VoidCallback onSuccess,
   }) async {
-    state = const AsyncValue.loading();
-
     final result = await _repository.signUp(
       email: email,
       password: password,
@@ -58,7 +60,7 @@ class AuthController extends _$AuthController {
     result.fold(
       (failure) {
         onError(failure.message);
-        state = AsyncValue.error(failure.message, StackTrace.current);
+        state = const AsyncValue.data(null);
       },
       (profile) {
         state = AsyncValue.data(profile);
@@ -68,12 +70,15 @@ class AuthController extends _$AuthController {
   }
 
   Future<void> logout({required Function(String) onError}) async {
-    state = const AsyncValue.loading();
     final result = await _repository.signOut();
 
-    result.fold((failure) {
-      onError(failure.message);
-      state = AsyncValue.error(failure.message, StackTrace.current);
-    }, (_) => state = const AsyncValue.data(null));
+    result.fold(
+      (failure) {
+        onError(failure.message);
+      },
+      (_) {
+        state = const AsyncValue.data(null);
+      },
+    );
   }
 }

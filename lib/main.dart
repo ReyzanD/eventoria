@@ -3,9 +3,15 @@ import 'package:eventoria/features/dashboard/presentation/screens/organizer_dash
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'features/auth/domain/entities/profile_entity.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
 import 'features/auth/presentation/screens/sign_in_screen.dart';
+import 'features/auth/presentation/screens/organizer_pending_screen.dart'; // <-- Fixed the space typo here
+
+// --- THE NEW ADMIN IMPORT ---
+import 'features/admin/presentation/screens/admin_dashboard_screen.dart';
+
 import 'core/network/supabase_config.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
@@ -79,11 +85,22 @@ class AuthGate extends ConsumerWidget {
           return const SignInScreen();
         }
 
-        if (profile.role == UserRole.organizer) {
-          return const OrganizerDashboardScreen();
-        } else {
-          return const AttendeeDashboardScreen();
+        // --- 1. SUPER ADMIN CHECK ---
+        if (profile.role == UserRole.admin) {
+          return const AdminDashboardScreen();
         }
+
+        // --- 2. ORGANIZER CHECK ---
+        if (profile.role == UserRole.organizer) {
+          if (profile.isVerified) {
+            return const OrganizerDashboardScreen(); // Allowed in!
+          } else {
+            return const OrganizerPendingScreen(); // Locked out until approved
+          }
+        }
+
+        // --- 3. EVERYONE ELSE (Attendees) ---
+        return const AttendeeDashboardScreen();
       },
       loading: () => const Scaffold(
         body: Center(
