@@ -121,7 +121,7 @@ class EventTicketTiers extends StatelessWidget {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            '• \$${price.toStringAsFixed(0)} • $capacity available',
+                            '• Rp ${price.toStringAsFixed(0)} • $capacity available',
                             style: const TextStyle(
                               color: Color(0xFF717F8C),
                               fontSize: 12.5,

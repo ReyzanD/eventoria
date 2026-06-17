@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/auth_provider.dart';
+import 'organizer_payouts_screen.dart';
+import 'organization_details_screen.dart';
+import 'team_management_screen.dart';
+import 'help_support_screen.dart';
+import 'app_settings_screen.dart';
 
 class OrganizerProfileScreen extends ConsumerWidget {
   const OrganizerProfileScreen({super.key});
@@ -271,19 +276,37 @@ class OrganizerProfileScreen extends ConsumerWidget {
                   _buildProfileMenuItem(
                     icon: Icons.account_balance_rounded,
                     label: 'Payouts & Bank Info',
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const OrganizerPayoutsScreen(),
+                        ),
+                      );
+                    },
                   ),
                   const Divider(height: 1, color: Color(0xFFF1F5F9)),
                   _buildProfileMenuItem(
                     icon: Icons.business_rounded,
                     label: 'Organization Details',
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const OrganizationDetailsScreen(),
+                        ),
+                      );
+                    },
                   ),
                   const Divider(height: 1, color: Color(0xFFF1F5F9)),
                   _buildProfileMenuItem(
                     icon: Icons.people_alt_rounded,
                     label: 'Team Management',
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const TeamManagementScreen(),
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
@@ -302,14 +325,26 @@ class OrganizerProfileScreen extends ConsumerWidget {
                     icon: Icons.help_outline_rounded,
                     label: 'Help & Support',
                     iconColor: const Color(0xFF64748B),
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const HelpSupportScreen(),
+                        ),
+                      );
+                    },
                   ),
                   const Divider(height: 1, color: Color(0xFFF1F5F9)),
                   _buildProfileMenuItem(
                     icon: Icons.settings_rounded,
                     label: 'App Settings',
                     iconColor: const Color(0xFF64748B),
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const AppSettingsScreen(),
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),

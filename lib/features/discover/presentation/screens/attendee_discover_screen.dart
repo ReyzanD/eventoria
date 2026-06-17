@@ -1,12 +1,18 @@
-import 'package:eventoria/features/auth/presentation/providers/auth_provider.dart';
-import 'package:eventoria/features/explore/presentation/screens/event_details_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../core/theme/attendee_theme.dart';
+import 'package:intl/intl.dart';
+import '../../../../core/responsive/responsive.dart';
+import '../../../notifications/presentation/controller/notifications_provider.dart';
+import '../../../notifications/presentation/screens/notifications_screen.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../events/data/models/event_model.dart';
+import '../../../explore/presentation/screens/event_details_screen.dart';
+import '../../../discover/presentation/screens/attendee_search_screen.dart';
+import '../../../../core/theme/attendee_theme.dart';
 import '../controller/discover_controller.dart';
-import '../widgets/glass_search_bar.dart';
+import '../controller/bookmarks_provider.dart';
 import '../widgets/category_chip.dart';
+import '../widgets/glass_search_bar.dart';
 import '../widgets/weekend_event_card.dart';
 import '../widgets/near_you_row_item.dart';
 
@@ -22,61 +28,80 @@ class _AttendeeDiscoverScreenState
     extends ConsumerState<AttendeeDiscoverScreen> {
   int _selectedCategoryIndex = 0;
 
-  final List<String> _categories = [
-    'All',
-    '🎵 Music',
-    '💻 Tech',
-    '🌮 Food',
-    '🎨 Art',
-    '🏀 Sports',
-  ];
+  static const _categoryEmojis = {
+    'Conference': '💼',
+    'Festival': '🎉',
+    'Workshop': '🔧',
+    'Concert': '🎵',
+    'Exhibition': '🎨',
+  };
 
   String _formatDate(DateTime date) {
     const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
     ];
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return '${days[date.weekday - 1]}, ${months[date.month - 1]} ${date.day}';
+  }
 
-    final dayName = days[date.weekday - 1];
-    final monthName = months[date.month - 1];
+  String _formatTime(DateTime date) {
     final hour = date.hour > 12
         ? date.hour - 12
         : (date.hour == 0 ? 12 : date.hour);
     final amPm = date.hour >= 12 ? 'PM' : 'AM';
     final minutes = date.minute.toString().padLeft(2, '0');
-
-    return '$dayName, $monthName ${date.day} • $hour:$minutes $amPm';
+    return '$hour:$minutes $amPm';
   }
 
-  String _getEventImage(EventModel event) {
-    final category = event.category.toLowerCase();
-    if (category.contains('music') ||
-        category.contains('concert') ||
-        category.contains('festival')) {
-      return 'https://ui-avatars.com/api/?name=Attendee&background=3B4FEB&color=fff';
+  String _formatCurrency(double amount) {
+    return NumberFormat.currency(symbol: 'Rp ', decimalDigits: 0).format(amount);
+  }
+
+  String _computeStartingPrice(EventModel event) {
+    if (event.ticketTiers == null || event.ticketTiers!.isEmpty) {
+      return 'Free';
     }
-    if (category.contains('tech') ||
-        category.contains('conference') ||
-        category.contains('workshop')) {
-      return 'https://ui-avatars.com/api/?name=Attendee&background=3B4FEB&color=fff';
-    }
-    return 'https://ui-avatars.com/api/?name=Attendee&background=3B4FEB&color=fff';
+    final minPrice =
+        event.ticketTiers!.map((t) => t.price).reduce((a, b) => a < b ? a : b);
+    return 'From ${_formatCurrency(minPrice)}+';
+  }
+
+  bool _isThisWeekend(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final eventDate = DateTime(date.year, date.month, date.day);
+    final diff = eventDate.difference(today).inDays;
+
+    if (diff < 0 || diff > 10) return false;
+
+    return eventDate.weekday == DateTime.friday ||
+        eventDate.weekday == DateTime.saturday ||
+        eventDate.weekday == DateTime.sunday;
+  }
+
+  List<String> _buildCategories(List<EventModel> events) {
+    final unique = events.map((e) => e.category).toSet().toList()..sort();
+    return ['All', ...unique];
+  }
+
+  String _categoryLabel(String category, int index) {
+    if (index == 0) return 'All';
+    final emoji = _categoryEmojis[category];
+    return emoji != null ? '$emoji $category' : category;
+  }
+
+  List<EventModel> _filterByCategory(List<EventModel> events, String category) {
+    if (category == 'All') return events;
+    return events
+        .where((e) => e.category.toLowerCase() == category.toLowerCase())
+        .toList();
   }
 
   @override
   Widget build(BuildContext context) {
     final eventsAsyncValue = ref.watch(discoverEventsProvider);
+    final profileAsyncValue = ref.watch(authControllerProvider);
 
     return Theme(
       data: ThemeData.dark().copyWith(
@@ -84,10 +109,10 @@ class _AttendeeDiscoverScreenState
       ),
       child: Scaffold(
         backgroundColor: AttendeeTheme.bgColor,
-        // NO MORE BOTTOM NAVIGATION BAR HERE!
         body: eventsAsyncValue.when(
           loading: () => const Center(
-            child: CircularProgressIndicator(color: AttendeeTheme.electricBlue),
+            child:
+                CircularProgressIndicator(color: AttendeeTheme.electricBlue),
           ),
           error: (err, stack) => Center(
             child: Text(
@@ -96,26 +121,23 @@ class _AttendeeDiscoverScreenState
             ),
           ),
           data: (allEvents) {
-            List<EventModel> displayEvents = allEvents;
-            if (_selectedCategoryIndex != 0) {
-              final selectedCat = _categories[_selectedCategoryIndex].substring(
-                3,
-              );
-              displayEvents = allEvents
-                  .where((e) => e.category == selectedCat)
-                  .toList();
-            }
+            final categories = _buildCategories(allEvents);
+            final selectedCategory =
+                _selectedCategoryIndex == 0
+                    ? 'All'
+                    : categories[_selectedCategoryIndex];
 
-            if (displayEvents.isEmpty) {
+            final catFilteredEvents =
+                _filterByCategory(allEvents, selectedCategory);
+
+            if (allEvents.isEmpty) {
               return Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      Icons.event_busy_rounded,
-                      size: 64,
-                      color: AttendeeTheme.neonPink.withValues(alpha: 0.5),
-                    ),
+                    Icon(Icons.event_busy_rounded,
+                        size: 64,
+                        color: AttendeeTheme.neonPink.withValues(alpha: 0.5)),
                     const SizedBox(height: 16),
                     const Text(
                       "No events found",
@@ -142,165 +164,199 @@ class _AttendeeDiscoverScreenState
               );
             }
 
-            final heroEvent = displayEvents.first;
-            final weekendEvents = displayEvents.length > 1
-                ? displayEvents.sublist(1).take(3).toList()
-                : <EventModel>[];
-            final nearYouEvents = displayEvents.length > 4
-                ? displayEvents.sublist(4).toList()
-                : <EventModel>[];
+            final featuredEvent = catFilteredEvents.first;
+            final weekendEvents = catFilteredEvents
+                .where((e) => _isThisWeekend(e.startDate))
+                .toList();
+            final nearYouEvents = catFilteredEvents
+                .where((e) => e.id != featuredEvent.id)
+                .toList();
 
-            return CustomScrollView(
+            final bookmarkedIds = ref.watch(bookmarkedIdsProvider);
+            final unreadCount = ref.watch(unreadNotificationCountProvider).asData?.value ?? 0;
+            final profile = profileAsyncValue.asData?.value;
+            final isDesktop = context.isDesktop;
+
+            return Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: isDesktop ? 1200 : double.infinity,
+                ),
+                child: CustomScrollView(
               slivers: [
-                SliverAppBar(
-                  expandedHeight: 390,
-                  pinned: true,
-                  backgroundColor: AttendeeTheme.bgColor,
-                  elevation: 0,
-                  flexibleSpace: FlexibleSpaceBar(
-                    background: Stack(
-                      fit: StackFit.expand,
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                    child: Row(
                       children: [
-                        Image.network(
-                          'https://ui-avatars.com/api/?name=Attendee&background=3B4FEB&color=fff',
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              color: const Color(0xFFF1F5F9),
-                              alignment: Alignment.center,
-                              child: const Icon(
-                                Icons.image_not_supported_outlined,
-                                color: Color(0xFF94A3B8),
-                                size: 32,
-                              ),
-                            );
-                          },
-                        ),
-                        Container(
-                          decoration: const BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Colors.black,
-                                Colors.transparent,
-                                AttendeeTheme.bgColor,
-                              ],
-                              stops: [0.0, 0.45, 1.0],
+                        Expanded(
+                          child: Text(
+                            'Hi, ${profile?.fullName.split(' ').firstOrNull ?? 'Guest'} 👋',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.w900,
                             ),
                           ),
                         ),
-                        Positioned(
-                          left: 20,
-                          right: 20,
-                          bottom: 30,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                heroEvent.title,
-                                style: const TextStyle(
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: IconButton(
+                            icon: Stack(
+                              children: [
+                                const Icon(
+                                  Icons.notifications_none_rounded,
                                   color: Colors.white,
-                                  fontSize: 26,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: -0.5,
                                 ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
+                                if (unreadCount > 0)
+                                  Positioned(
+                                    right: 2,
+                                    top: 2,
+                                    child: Container(
+                                      width: 8,
+                                      height: 8,
+                                      decoration: const BoxDecoration(
+                                        color: AttendeeTheme.neonPink,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            onPressed: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    const NotificationsScreen(),
                               ),
-                              const SizedBox(height: 6),
-                              Text(
-                                _formatDate(heroEvent.startDate),
-                                style: const TextStyle(
-                                  color: AttendeeTheme.electricBlue,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 20),
-                              const GlassSearchBar(),
-                            ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.15),
+                              width: 2,
+                            ),
+                          ),
+                          child: CircleAvatar(
+                            radius: 20,
+                            backgroundColor: AttendeeTheme.cardColor,
+                            backgroundImage: profile?.avatarUrl != null
+                                ? NetworkImage(profile!.avatarUrl!)
+                                : null,
+                            child: profile?.avatarUrl == null
+                                ? Text(
+                                    (profile?.fullName.isNotEmpty == true
+                                            ? profile!.fullName[0]
+                                            : '?')
+                                        .toUpperCase(),
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  )
+                                : null,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  title: Text(
-                    'Hi, ${ref.watch(authControllerProvider).value?.fullName.split(' ')[0] ?? 'Guest'} 👋',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  actions: [
-                    Container(
-                      margin: const EdgeInsets.only(right: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: IconButton(
-                        icon: const Icon(
-                          Icons.notifications_none_rounded,
-                          color: Colors.white,
-                        ),
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Notifications coming soon!'),
-                              backgroundColor: AttendeeTheme.electricBlue,
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.only(right: 20),
-                      child: CircleAvatar(
-                        radius: 20,
-                        backgroundColor: Color(0xFFE2E8F0),
-                        foregroundImage: NetworkImage(
-                          'https://ui-avatars.com/api/?name=Attendee&background=3B4FEB&color=fff',
-                        ),
-                        child: Icon(
-                          Icons.person_rounded,
-                          color: Color(0xFF717F8C),
-                          size: 20,
-                        ),
-                      ),
-                    ),
-                  ],
                 ),
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 12,
-                    ),
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                    child: const GlassSearchBar(),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                    child: _buildHeroCard(featuredEvent),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        const Text(
+                          'Categories',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
                         SizedBox(
                           height: 46,
                           child: ListView.builder(
                             scrollDirection: Axis.horizontal,
-                            itemCount: _categories.length,
+                            itemCount: categories.length,
                             itemBuilder: (context, index) => CategoryChip(
-                              label: _categories[index],
-                              isSelected: _selectedCategoryIndex == index,
+                              label:
+                                  _categoryLabel(categories[index], index),
+                              isSelected:
+                                  _selectedCategoryIndex == index,
                               onTap: () => setState(
-                                () => _selectedCategoryIndex = index,
-                              ),
+                                  () => _selectedCategoryIndex = index),
                             ),
                           ),
                         ),
-                        const SizedBox(height: 32),
-                        if (weekendEvents.isNotEmpty) ...[
-                          _buildSectionHeader('Upcoming'),
-                          const SizedBox(height: 16),
+                      ],
+                    ),
+                  ),
+                ),
+                if (weekendEvents.isNotEmpty)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment:
+                                MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'This weekend',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          const AttendeeSearchScreen(),
+                                    ),
+                                  );
+                                },
+                                child: Text(
+                                  'See all >',
+                                  style: TextStyle(
+                                    color:
+                                        AttendeeTheme.neonPink.withValues(alpha: 0.8),
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
                           SizedBox(
-                            height: 245,
+                            height: 270,
                             child: ListView.builder(
                               scrollDirection: Axis.horizontal,
                               itemCount: weekendEvents.length,
@@ -308,9 +364,11 @@ class _AttendeeDiscoverScreenState
                                 final ev = weekendEvents[index];
                                 return WeekendEventCard(
                                   title: ev.title,
-                                  imageUtl: _getEventImage(ev),
+                                  imageUrl: ev.coverImageUrl,
                                   date: _formatDate(ev.startDate),
+                                  time: _formatTime(ev.startDate),
                                   location: ev.venueName,
+                                  price: _computeStartingPrice(ev),
                                   onTap: () {
                                     Navigator.of(context).push(
                                       MaterialPageRoute(
@@ -323,69 +381,185 @@ class _AttendeeDiscoverScreenState
                               },
                             ),
                           ),
-                          const SizedBox(height: 32),
                         ],
-                        if (nearYouEvents.isNotEmpty) ...[
-                          _buildSectionHeader('More Events'),
-                          const SizedBox(height: 16),
-                          ListView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: nearYouEvents.length,
-                            itemBuilder: (context, index) {
-                              final ev = nearYouEvents[index];
-                              return NearYouRowItem(
-                                title: ev.title,
-                                imageUrl: _getEventImage(ev),
-                                date: _formatDate(ev.startDate),
-                                location: ev.venueName,
-                                onTap: () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          EventDetailsScreen(event: ev),
-                                    ),
-                                  );
-                                },
+                      ),
+                    ),
+                  ),
+                if (nearYouEvents.isNotEmpty)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Near you',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const AttendeeSearchScreen(),
+                                ),
                               );
                             },
+                            child: Text(
+                              'See all >',
+                              style: TextStyle(
+                                color: AttendeeTheme.neonPink.withValues(alpha: 0.8),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ),
-                          const SizedBox(height: 30),
                         ],
-                      ],
+                      ),
                     ),
+                  ),
+                SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final ev = nearYouEvents[index];
+                      return Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          20,
+                          index == 0 ? 14 : 0,
+                          20,
+                          index == nearYouEvents.length - 1 ? 24 : 0,
+                        ),
+                        child: NearYouRowItem(
+                          title: ev.title,
+                          imageUrl: ev.coverImageUrl,
+                          date: _formatDate(ev.startDate),
+                          time: _formatTime(ev.startDate),
+                          location: ev.venueName,
+                          category: ev.category,
+                          price: _computeStartingPrice(ev),
+                          isBookmarked: bookmarkedIds.contains(ev.id),
+                          onBookmark: () => ref
+                              .read(bookmarkedIdsProvider.notifier)
+                              .toggle(ev.id),
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    EventDetailsScreen(event: ev),
+                              ),
+                            );
+                          },
+                        ),
+                      );
+                    },
+                    childCount: nearYouEvents.length,
                   ),
                 ),
               ],
-            );
+            ),
+          ),
+        );
           },
         ),
       ),
     );
   }
 
-  Widget _buildSectionHeader(String title) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 22,
-            fontWeight: FontWeight.w900,
-            letterSpacing: -0.5,
+  Widget _buildHeroCard(EventModel event) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => EventDetailsScreen(event: event),
+          ),
+        );
+      },
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: SizedBox(
+          height: 200,
+          width: double.infinity,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Image.network(
+                event.coverImageUrl ??
+                    'https://ui-avatars.com/api/?name=Event&background=161C2D&color=fff&size=800',
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  color: AttendeeTheme.cardColor,
+                  child: const Center(
+                    child: Icon(Icons.image_outlined,
+                        color: Colors.white24, size: 48),
+                  ),
+                ),
+              ),
+              Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.transparent, Colors.black87],
+                    stops: [0.4, 1.0],
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 16,
+                right: 16,
+                bottom: 16,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      event.title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Icon(Icons.calendar_today_rounded,
+                            size: 14, color: AttendeeTheme.electricBlue),
+                        const SizedBox(width: 6),
+                        Text(
+                          _formatDate(event.startDate),
+                          style: const TextStyle(
+                            color: AttendeeTheme.electricBlue,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Icon(Icons.access_time_rounded,
+                            size: 14, color: AttendeeTheme.electricBlue),
+                        const SizedBox(width: 4),
+                        Text(
+                          _formatTime(event.startDate),
+                          style: const TextStyle(
+                            color: AttendeeTheme.electricBlue,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
-        const Text(
-          'See all',
-          style: TextStyle(
-            color: AttendeeTheme.electricBlue,
-            fontWeight: FontWeight.bold,
-            fontSize: 14,
-          ),
-        ),
-      ],
+      ),
     );
   }
 }

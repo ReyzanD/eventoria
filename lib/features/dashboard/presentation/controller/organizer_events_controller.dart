@@ -35,6 +35,41 @@ class OrganizerEventsController extends AsyncNotifier<List<EventModel>> {
     state = await AsyncValue.guard(() => _fetchOrganizerEvents());
   }
 
+  Future<bool> updateEvent(
+    EventModel updatedEvent,
+    List<TicketModel> tiers,
+  ) async {
+    try {
+      await _client
+          .from('events')
+          .update(updatedEvent.toJson())
+          .eq('id', updatedEvent.id);
+
+      for (final tier in tiers) {
+        if (tier.id.isNotEmpty) {
+          await _client
+              .from('ticket_tiers')
+              .update(tier.toJson())
+              .eq('id', tier.id);
+        } else {
+          final tierJson = tier.toJson();
+          tierJson.remove('id');
+          tierJson['event_id'] = updatedEvent.id;
+          tierJson.remove('tickets_sold');
+          await _client.from('ticket_tiers').insert(tierJson);
+        }
+      }
+
+      await refresh();
+      return true;
+    } catch (e) {
+      assert(() {
+        debugPrint('Error updating event: $e');
+        return true;
+      }());
+      return false;
+    }
+  }
 
   Future<bool> createEvent(
     EventModel newEvent,

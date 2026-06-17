@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+import '../../../../core/responsive/responsive.dart';
 import '../../../../core/theme/attendee_theme.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
-import '../../../events/data/models/event_model.dart'; // Adjust import if you use EventEntity
+import '../../../events/data/models/event_model.dart';
 import '../../../tickets/presentation/controller/ticket_booking_controller.dart';
+import '../../../tickets/presentation/screens/checkout_screen.dart';
 
 class EventDetailsScreen extends ConsumerStatefulWidget {
   final EventModel event;
@@ -45,31 +48,13 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
     return '$dayName, $monthName ${date.day} • $hour:$minutes $amPm';
   }
 
+  String _formatCurrency(double amount) {
+    return NumberFormat.currency(symbol: 'Rp ', decimalDigits: 0).format(amount);
+  }
+
   @override
   Widget build(BuildContext context) {
-    // 1. Listen for the booking state to show Success/Error popups
-    ref.listen<AsyncValue>(ticketBookingControllerProvider, (previous, next) {
-      if (next is AsyncError) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to buy ticket: ${next.error}'),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
-      } else if (next is AsyncData && next.value != null && !next.isLoading) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Ticket Purchased Successfully! 🎉'),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-        Navigator.of(context).pop(); // Go back to feed on success
-      }
-    });
-
-    final bookingState = ref.watch(ticketBookingControllerProvider);
-    final isLoading = bookingState.isLoading;
+    final isLoading = ref.watch(ticketBookingControllerProvider).isLoading;
 
     // Fetch the ticket tiers from the database
     final tiersAsync = ref.watch(eventTiersProvider(widget.event.id));
@@ -80,7 +65,12 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
       ),
       child: Scaffold(
         backgroundColor: AttendeeTheme.bgColor,
-        body: CustomScrollView(
+        body: Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: context.isDesktop ? 900 : double.infinity,
+            ),
+            child: CustomScrollView(
           slivers: [
             // --- HUGE HERO IMAGE APP BAR ---
             SliverAppBar(
@@ -259,7 +249,7 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                                       ],
                                     ),
                                     Text(
-                                      '\$${tier.price.toStringAsFixed(2)}',
+                                      _formatCurrency(tier.price),
                                       style: TextStyle(
                                         color: isSelected
                                             ? AttendeeTheme.neonPink
@@ -281,8 +271,10 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                 ),
               ),
             ),
-          ],
+            ],
+          ),
         ),
+      ),
 
         // --- STICKY BOTTOM BUY BUTTON ---
         bottomSheet: Container(
@@ -311,9 +303,18 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                         return;
                       }
 
-                      ref
-                          .read(ticketBookingControllerProvider.notifier)
-                          .bookTicket(widget.event.id, _selectedTierId!);
+                      final tiers = tiersAsync.asData?.value;
+                      if (tiers == null) return;
+                      final selectedTier = tiers.firstWhere((t) => t.id == _selectedTierId);
+
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => CheckoutScreen(
+                            event: widget.event,
+                            tier: selectedTier,
+                          ),
+                        ),
+                      );
                     },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AttendeeTheme.neonPink,

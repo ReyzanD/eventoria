@@ -66,7 +66,7 @@ class _AddTierDialogState extends State<AddTierDialog> {
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: const InputDecoration(
               labelText: 'Price (Set 0 for Free)',
-              prefixText: '\$ ',
+              prefixText: 'Rp ',
               labelStyle: TextStyle(color: Color(0xFF717F8C)),
               focusedBorder: UnderlineInputBorder(
                 borderSide: BorderSide(color: Color(0xFF3B4FEB)),

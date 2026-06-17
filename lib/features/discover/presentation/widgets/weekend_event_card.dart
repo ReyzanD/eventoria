@@ -3,94 +3,125 @@ import '../../../../core/theme/attendee_theme.dart';
 
 class WeekendEventCard extends StatelessWidget {
   final String title;
-  final String imageUtl;
+  final String? imageUrl;
   final String date;
+  final String time;
   final String location;
-  final VoidCallback? onTap; // <-- 1. Add this!
+  final String price;
+  final VoidCallback? onTap;
 
   const WeekendEventCard({
     super.key,
     required this.title,
-    required this.imageUtl,
+    this.imageUrl,
     required this.date,
+    required this.time,
     required this.location,
-    this.onTap, // <-- 2. Add it to the constructor!
+    required this.price,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    // 3. Wrap your Container in a GestureDetector
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 210,
-        margin: const EdgeInsets.only(right: 16),
+        width: 190,
+        margin: const EdgeInsets.only(right: 14),
         decoration: BoxDecoration(
           color: AttendeeTheme.cardColor,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.04)),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ClipRRect(
               borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(24),
+                top: Radius.circular(20),
               ),
               child: Image.network(
-                imageUtl,
-                height: 125,
+                imageUrl ?? 'https://ui-avatars.com/api/?name=Event&background=161C2D&color=fff&size=400',
+                height: 130,
                 width: double.infinity,
                 fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  height: 130,
+                  color: AttendeeTheme.cardColor,
+                  child: const Center(
+                    child: Icon(Icons.image_outlined, color: Colors.white24, size: 32),
+                  ),
+                ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    date,
-                    style: const TextStyle(
-                      color: AttendeeTheme.neonPink,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.location_on_rounded,
-                        size: 14,
-                        color: Colors.grey.shade500,
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
                       ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          location,
-                          style: TextStyle(
-                            color: Colors.grey.shade500,
-                            fontSize: 12,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(Icons.calendar_today_rounded, size: 11, color: AttendeeTheme.electricBlue),
+                        const SizedBox(width: 4),
+                        Text(
+                          date,
+                          style: const TextStyle(
+                            color: AttendeeTheme.electricBlue,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                         ),
+                        const SizedBox(width: 6),
+                        Icon(Icons.access_time_rounded, size: 11, color: AttendeeTheme.electricBlue),
+                        const SizedBox(width: 3),
+                        Text(
+                          time,
+                          style: const TextStyle(
+                            color: AttendeeTheme.electricBlue,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(Icons.location_on_rounded, size: 12, color: Colors.grey.shade500),
+                        const SizedBox(width: 3),
+                        Expanded(
+                          child: Text(
+                            location,
+                            style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    Text(
+                      price,
+                      style: const TextStyle(
+                        color: AttendeeTheme.neonOrange,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ],

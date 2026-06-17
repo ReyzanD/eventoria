@@ -1,4 +1,5 @@
 import 'package:eventoria/features/auth/presentation/screens/sign_up_screen.dart';
+import 'package:eventoria/features/auth/presentation/screens/forgot_password_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
@@ -293,12 +294,9 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
             alignment: Alignment.centerRight,
             child: TextButton(
               onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Forgot Password flow is not implemented in this demo.',
-                    ),
-                    backgroundColor: Colors.redAccent,
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const ForgotPasswordScreen(),
                   ),
                 );
               },

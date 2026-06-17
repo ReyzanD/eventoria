@@ -15,6 +15,7 @@ class TicketModel extends TicketEntity {
     required super.createdAt,
     super.eventName,
     super.ticketTierName,
+    super.paymentStatus,
   });
 
   factory TicketModel.fromJson(Map<String, dynamic> json) {

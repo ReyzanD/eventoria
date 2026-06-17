@@ -15,7 +15,9 @@ import '../widgets/create_event/event_title_and_category.dart';
 import '../../../../core/widgets/shared_app_bar.dart';
 
 class CreateEventScreen extends ConsumerStatefulWidget {
-  const CreateEventScreen({super.key});
+  final EventModel? existingEvent;
+
+  const CreateEventScreen({super.key, this.existingEvent});
 
   @override
   ConsumerState<CreateEventScreen> createState() => _CreateEventScreenState();
@@ -31,18 +33,18 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
   final _tierPriceController = TextEditingController();
   final _tierCapacityController = TextEditingController();
 
-  String _selectedCategory = 'Festival';
-  DateTime _startDate = DateTime.now().add(const Duration(days: 1));
-  DateTime _endDate = DateTime.now().add(const Duration(days: 1, hours: 3));
-  TimeOfDay _startTime = const TimeOfDay(hour: 16, minute: 0);
-  TimeOfDay _endTime = const TimeOfDay(hour: 22, minute: 0);
+  late String _selectedCategory;
+  late DateTime _startDate;
+  late DateTime _endDate;
+  late TimeOfDay _startTime;
+  late TimeOfDay _endTime;
 
   String? _coverImageUrl;
   bool _isPublished = true;
   bool _allowRefunds = false;
   bool _isSaving = false;
 
-  LatLng _pickedLocation = const LatLng(-6.2000, 106.8167);
+  late LatLng _pickedLocation;
   bool _hasPickedLocation = false;
 
   final List<String> _categories = [
@@ -52,6 +54,46 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
     'Workshop',
     'Exhibition',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    final ev = widget.existingEvent;
+    if (ev != null) {
+      _titleController.text = ev.title;
+      _descController.text = ev.description ?? '';
+      _venueController.text = ev.venueName;
+      _selectedCategory = ev.category;
+      _startDate = ev.startDate;
+      _endDate = ev.endDate;
+      _startTime = TimeOfDay.fromDateTime(ev.startDate);
+      _endTime = TimeOfDay.fromDateTime(ev.endDate);
+      _coverImageUrl = ev.coverImageUrl;
+      _isPublished = ev.isPublished;
+      _allowRefunds = ev.allowRefunds;
+      _pickedLocation = LatLng(ev.latitude, ev.longitude);
+      _hasPickedLocation = true;
+      if (ev.ticketTiers != null) {
+        for (final tier in ev.ticketTiers!) {
+          _localTicketTiers.add({
+            'id': tier.id,
+            'event_id': tier.eventId,
+            'name': tier.name,
+            'price': tier.price,
+            'total_capacity': tier.totalCapacity,
+            'tickets_sold': tier.ticketsSold,
+          });
+        }
+      }
+    } else {
+      _selectedCategory = 'Festival';
+      _startDate = DateTime.now().add(const Duration(days: 1));
+      _endDate = DateTime.now().add(const Duration(days: 1, hours: 3));
+      _startTime = const TimeOfDay(hour: 16, minute: 0);
+      _endTime = const TimeOfDay(hour: 22, minute: 0);
+      _pickedLocation = const LatLng(-6.2000, 106.8167);
+    }
+  }
 
   @override
   void dispose() {
@@ -135,9 +177,13 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
         );
       }).toList();
 
-      final success = await ref
-          .read(organizerEventsProvider.notifier)
-          .createEvent(eventPayload, tiersToSubmit);
+      final success = widget.existingEvent != null
+          ? await ref
+              .read(organizerEventsProvider.notifier)
+              .updateEvent(eventPayload, tiersToSubmit)
+          : await ref
+              .read(organizerEventsProvider.notifier)
+              .createEvent(eventPayload, tiersToSubmit);
 
       if (!mounted) return;
 
@@ -233,7 +279,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: SharedAppBar(
-        title: 'Create event',
+        title: widget.existingEvent != null ? 'Edit event' : 'Create event',
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Color(0xFF3B4FEB)),

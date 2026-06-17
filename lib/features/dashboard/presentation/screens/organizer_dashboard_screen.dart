@@ -1,12 +1,19 @@
+import 'dart:io';
+
 import 'package:eventoria/features/analytics/presentation/screens/organizer_analytics_screen.dart';
 import 'package:eventoria/features/auth/presentation/providers/auth_provider.dart';
 import 'package:eventoria/features/auth/presentation/screens/organizer_profile_screen.dart';
 import 'package:eventoria/features/dashboard/presentation/controller/organizer_dashboard_controller.dart';
 import 'package:eventoria/features/dashboard/presentation/screens/create_event_screen.dart';
 import 'package:eventoria/features/dashboard/presentation/screens/organizer_event_details_screen.dart';
+import 'package:eventoria/features/payments/presentation/screens/organizer_payments_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
+import '../../../../core/responsive/responsive.dart';
+import '../../../attendees/presentation/providers/organizer_all_attendees_provider.dart';
 import '../../../attendees/presentation/screens/organizer_all_attendees_screen.dart';
 import '../../domain/models/dashboard_view_state.dart';
 import '../../domain/models/event_sales_summary.dart';
@@ -28,21 +35,56 @@ class OrganizerDashboardScreen extends ConsumerStatefulWidget {
 class _OrganizerDashboardScreenState
     extends ConsumerState<OrganizerDashboardScreen> {
   int _activeTabIndex = 0;
-  int _bottomNavIndex = 0;
+  int _navIndex = 0;
+
+  final _navDestinations = <NavigationRailDestination>[
+    const NavigationRailDestination(
+      icon: Icon(Icons.calendar_month_rounded),
+      selectedIcon: Icon(Icons.calendar_month_rounded, color: Color(0xFF3B4FEB)),
+      label: Text('Events'),
+    ),
+    const NavigationRailDestination(
+      icon: Icon(Icons.people_outline_rounded),
+      selectedIcon: Icon(Icons.people_rounded, color: Color(0xFF3B4FEB)),
+      label: Text('Attendees'),
+    ),
+    const NavigationRailDestination(
+      icon: Icon(Icons.payment_rounded),
+      selectedIcon: Icon(Icons.payment_rounded, color: Color(0xFF3B4FEB)),
+      label: Text('Payments'),
+    ),
+    const NavigationRailDestination(
+      icon: Icon(Icons.qr_code_rounded),
+      selectedIcon: Icon(Icons.qr_code_rounded, color: Color(0xFF3B4FEB)),
+      label: Text('Scan'),
+    ),
+    const NavigationRailDestination(
+      icon: Icon(Icons.bar_chart_rounded),
+      selectedIcon: Icon(Icons.bar_chart_rounded, color: Color(0xFF3B4FEB)),
+      label: Text('Analytics'),
+    ),
+    const NavigationRailDestination(
+      icon: Icon(Icons.person_outline_rounded),
+      selectedIcon: Icon(Icons.person_rounded, color: Color(0xFF3B4FEB)),
+      label: Text('Profile'),
+    ),
+  ];
 
   @override
   Widget build(BuildContext context) {
     final dashboardState = ref.watch(organizerDashboardProvider);
+    final isDesktop = context.isDesktop;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         title: Text(
-          switch (_bottomNavIndex) {
+          switch (_navIndex) {
             0 => 'My Events',
             1 => 'All Attendees',
-            2 => 'Scan QR Code',
-            3 => 'Analytics',
+            2 => 'Payments',
+            3 => 'Scan QR Code',
+            4 => 'Analytics',
             _ => 'Profile',
           },
           style: const TextStyle(
@@ -55,7 +97,7 @@ class _OrganizerDashboardScreenState
         elevation: 0,
         automaticallyImplyLeading: false,
         actions: [
-          if (_bottomNavIndex == 0)
+          if (_navIndex == 0)
             Padding(
               padding: const EdgeInsets.only(right: 12, top: 10, bottom: 10),
               child: ElevatedButton.icon(
@@ -85,6 +127,69 @@ class _OrganizerDashboardScreenState
                 ),
               ),
             ),
+          if (_navIndex == 1)
+            IconButton(
+              icon: const Icon(
+                Icons.download_rounded,
+                color: Color(0xFF3B4FEB),
+              ),
+              tooltip: 'Export CSV',
+              onPressed: () async {
+                final items = ref
+                    .read(organizerAllAttendeesControllerProvider)
+                    .value;
+                if (items == null || items.isEmpty) return;
+
+                final rows = <List<String>>[];
+                rows.add([
+                  'Order Number',
+                  'Event Name',
+                  'Attendee Name',
+                  'Email',
+                  'Ticket Tier',
+                  'Status',
+                ]);
+                for (final item in items) {
+                  rows.add([
+                    item.attendee.orderCode,
+                    item.eventTitle,
+                    item.attendee.name,
+                    item.attendee.email,
+                    item.attendee.ticketType,
+                    item.attendee.checkedIn ? 'Checked In' : 'Not Scanned',
+                  ]);
+                }
+
+                final csvData = rows
+                    .map((row) => row
+                        .map((cell) {
+                          final str = cell.toString();
+                          if (str.contains(',') ||
+                              str.contains('"') ||
+                              str.contains('\n')) {
+                            return '"${str.replaceAll('"', '""')}"';
+                          }
+                          return str;
+                        })
+                        .join(','))
+                    .join('\n');
+
+                final directory = await getTemporaryDirectory();
+                final path = '${directory.path}/guestlist_export.csv';
+                final file = File(path);
+                await file.writeAsString(csvData);
+
+                if (context.mounted) {
+                  final box = context.findRenderObject() as RenderBox?;
+                  await Share.shareXFiles(
+                    [XFile(path)],
+                    text: 'Here is the exported guest list.',
+                    sharePositionOrigin:
+                        box!.localToGlobal(Offset.zero) & box.size,
+                  );
+                }
+              },
+            ),
           IconButton(
             icon: const Icon(Icons.logout_rounded, color: Color(0xFF717F8C)),
             tooltip: 'Sign Out',
@@ -105,46 +210,11 @@ class _OrganizerDashboardScreenState
           ),
         ],
       ),
-      // --- UPDATED BODY LOGIC HERE ---
-      body: switch (_bottomNavIndex) {
-        0 => RefreshIndicator(
-          onRefresh: () async {
-            ref.invalidate(organizerDashboardProvider);
-            try {
-              await ref.read(organizerDashboardProvider.future);
-            } catch (_) {}
-          },
-          child: dashboardState.when(
-            data: (state) => Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 800),
-                child: _buildDashboardContent(state),
-              ),
-            ),
-            loading: () => const Center(
-              child: CircularProgressIndicator(color: Color(0xFF3B4FEB)),
-            ),
-            error: (err, stack) =>
-                Center(child: Text('Error loading dashboard: $err')),
-          ),
-        ),
-        1 => const OrganizerAllAttendeesScreen(),
-        2 => const OrganizerScannerScreen(),
-        3 => const OrganizerAnalyticsScreen(),
-        4 => const OrganizerProfileScreen(),
-        _ => Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 800),
-            child: _buildPlaceholderTab(),
-          ),
-        ),
-      },
-      // -------------------------------
-      floatingActionButton: _bottomNavIndex == 0
+      body: _buildBody(dashboardState, isDesktop),
+      floatingActionButton: _navIndex == 0 && !isDesktop
           ? FloatingActionButton(
               onPressed: () {
-                // <-- CHANGED TO SWITCH TO SCAN TAB
-                setState(() => _bottomNavIndex = 2);
+                setState(() => _navIndex = 3);
               },
               backgroundColor: const Color(0xFF3B4FEB),
               shape: const CircleBorder(),
@@ -155,88 +225,105 @@ class _OrganizerDashboardScreenState
               ),
             )
           : null,
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: Color(0xFFE2E8F0), width: 1)),
-        ),
-        child: BottomNavigationBar(
-          currentIndex: _bottomNavIndex,
-          onTap: (index) => setState(() => _bottomNavIndex = index),
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: Colors.white,
-          selectedItemColor: const Color(0xFF3B4FEB),
-          unselectedItemColor: const Color(0xFF717F8C),
-          selectedLabelStyle: const TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 12,
-          ),
-          unselectedLabelStyle: const TextStyle(fontSize: 12),
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.calendar_month_rounded),
-              label: 'Events',
+      bottomNavigationBar: isDesktop
+          ? null
+          : Container(
+              decoration: const BoxDecoration(
+                border: Border(
+                    top: BorderSide(color: Color(0xFFE2E8F0), width: 1)),
+              ),
+              child: NavigationBar(
+                selectedIndex: _navIndex,
+                onDestinationSelected: (i) => setState(() => _navIndex = i),
+                backgroundColor: Colors.white,
+                indicatorColor: const Color(0xFF3B4FEB).withValues(alpha: 0.1),
+                labelTextStyle: WidgetStateProperty.resolveWith((states) {
+                  if (states.contains(WidgetState.selected)) {
+                    return const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      color: Color(0xFF3B4FEB),
+                    );
+                  }
+                  return const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF717F8C),
+                  );
+                }),
+                destinations: _navDestinations
+                    .map((d) => NavigationDestination(
+                          icon: d.icon,
+                          selectedIcon: d.selectedIcon,
+                          label: (d.label as Text).data ?? '',
+                        ))
+                    .toList(),
+              ),
             ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.people_outline_rounded),
-              label: 'Attendees',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.qr_code_rounded),
-              label: 'Scan',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.bar_chart_rounded),
-              label: 'Analytics',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline_rounded),
-              label: 'Profile',
-            ),
-          ],
-        ),
-      ),
     );
   }
 
-  Widget _buildPlaceholderTab() {
-    final titles = [
-      'Events',
-      'Attendees',
-      'Scan QR Code',
-      'Analytics',
-      'Profile Settings',
-    ];
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            _bottomNavIndex == 1
-                ? Icons.people_outline_rounded
-                : _bottomNavIndex == 2
-                ? Icons.qr_code_rounded
-                : _bottomNavIndex == 3
-                ? Icons.bar_chart_rounded
-                : Icons.person_outline_rounded,
-            size: 80,
-            color: const Color(0xFF717F8C).withValues(alpha: 0.4),
+  Widget _buildBody(
+      AsyncValue<DashboardViewState> dashboardState, bool isDesktop) {
+    final bodyContent = switch (_navIndex) {
+      0 => RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(organizerDashboardProvider);
+            try {
+              await ref.read(organizerDashboardProvider.future);
+            } catch (_) {}
+          },
+          child: dashboardState.when(
+            data: (state) => Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: isDesktop ? 1200 : 800),
+                child: _buildDashboardContent(state),
+              ),
+            ),
+            loading: () => const Center(
+              child: CircularProgressIndicator(color: Color(0xFF3B4FEB)),
+            ),
+            error: (err, stack) =>
+                Center(child: Text('Error loading dashboard: $err')),
           ),
-          const SizedBox(height: 16),
-          Text(
-            titles[_bottomNavIndex],
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF1E293B),
+        ),
+      1 => const OrganizerAllAttendeesScreen(),
+      2 => const OrganizerPaymentsScreen(),
+      3 => const OrganizerScannerScreen(),
+      4 => const OrganizerAnalyticsScreen(),
+      5 => const OrganizerProfileScreen(),
+      _ => const OrganizerProfileScreen(),
+    };
+
+    if (!isDesktop) return bodyContent;
+
+    return Row(
+      children: [
+        NavigationRail(
+          selectedIndex: _navIndex,
+          onDestinationSelected: (i) => setState(() => _navIndex = i),
+          backgroundColor: Colors.white,
+          indicatorColor: const Color(0xFF3B4FEB).withValues(alpha: 0.12),
+          leading: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Column(
+              children: [
+                Icon(Icons.event_rounded,
+                    size: 32, color: const Color(0xFF3B4FEB)),
+                const SizedBox(height: 4),
+                Text('Eventoria',
+                    style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: const Color(0xFF3B4FEB))),
+              ],
             ),
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'This tab is under development.',
-            style: TextStyle(color: Color(0xFF717F8C)),
-          ),
-        ],
-      ),
+          labelType: NavigationRailLabelType.all,
+          destinations: _navDestinations,
+        ),
+        const VerticalDivider(width: 1, thickness: 1),
+        Expanded(child: bodyContent),
+      ],
     );
   }
 
@@ -256,7 +343,7 @@ class _OrganizerDashboardScreenState
               child: DashboardMetricCard(
                 label: 'Revenue',
                 value:
-                    '\$${(state.totalRevenue >= 1000 ? '${(state.totalRevenue / 1000).toStringAsFixed(1)}k' : state.totalRevenue.toStringAsFixed(0))}',
+                    'Rp ${(state.totalRevenue >= 1000 ? '${(state.totalRevenue / 1000).toStringAsFixed(1)}k' : state.totalRevenue.toStringAsFixed(0))}',
                 hasTrend: true,
               ),
             ),

@@ -87,7 +87,7 @@ class OrganizerAnalyticsScreen extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '\$${totalRevenue.toStringAsFixed(2)}',
+            'Rp ${totalRevenue.toStringAsFixed(0)}',
             style: const TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.w900,

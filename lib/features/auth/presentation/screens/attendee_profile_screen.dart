@@ -1,10 +1,74 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/attendee_theme.dart';
+import '../../../discover/presentation/controller/bookmarks_provider.dart';
+import '../../../notifications/presentation/screens/notifications_screen.dart';
+import '../../../tickets/presentation/screens/attendee_tickets_screen.dart';
 import '../providers/auth_provider.dart';
+import 'saved_events_screen.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
+
+  void _showHelpSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AttendeeTheme.cardColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.fromLTRB(24, 12, 24, 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Help & Support',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _helpRow(Icons.email_outlined, 'support@eventoria.app'),
+            const SizedBox(height: 12),
+            _helpRow(Icons.info_outline_rounded, 'Version 1.0.0'),
+            const SizedBox(height: 12),
+            _helpRow(Icons.description_outlined, 'Terms of Service'),
+            const SizedBox(height: 12),
+            _helpRow(Icons.shield_outlined, 'Privacy Policy'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _helpRow(IconData icon, String text) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: Colors.white.withValues(alpha: 0.5)),
+        const SizedBox(width: 12),
+        Text(
+          text,
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.8),
+            fontSize: 14,
+          ),
+        ),
+      ],
+    );
+  }
 
   void _showSignOutConfirmation(BuildContext context, WidgetRef ref) {
     showModalBottomSheet(
@@ -155,6 +219,7 @@ class ProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(authControllerProvider).asData?.value;
+    final bookmarkedCount = ref.watch(bookmarkedIdsProvider).length;
     final displayName = profile?.fullName ?? 'Attendee';
     final email = profile?.email ?? '';
     final initials = displayName
@@ -174,23 +239,23 @@ class ProfileScreen extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(
             children: [
-              const SizedBox(
-                height: 80,
-              ), // Added a bit more top padding for safe area
+              const SizedBox(height: 80),
               // Avatar
               Container(
                 width: 96,
                 height: 96,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: const LinearGradient(
-                    colors: [
-                      AttendeeTheme.electricBlue,
-                      AttendeeTheme.neonPink,
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  gradient: profile?.avatarUrl != null
+                      ? null
+                      : const LinearGradient(
+                          colors: [
+                            AttendeeTheme.electricBlue,
+                            AttendeeTheme.neonPink,
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
                   boxShadow: [
                     BoxShadow(
                       color: AttendeeTheme.electricBlue.withValues(alpha: 0.35),
@@ -198,17 +263,25 @@ class ProfileScreen extends ConsumerWidget {
                       spreadRadius: 2,
                     ),
                   ],
+                  image: profile?.avatarUrl != null
+                      ? DecorationImage(
+                          image: NetworkImage(profile!.avatarUrl!),
+                          fit: BoxFit.cover,
+                        )
+                      : null,
                 ),
-                child: Center(
-                  child: Text(
-                    initials.isEmpty ? '?' : initials,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 34,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
+                child: profile?.avatarUrl == null
+                    ? Center(
+                        child: Text(
+                          initials.isEmpty ? '?' : initials,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 34,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      )
+                    : null,
               ),
               const SizedBox(height: 16),
               Text(
@@ -254,32 +327,55 @@ class ProfileScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 36),
 
-              // Menu items
+              // My Tickets
               _buildProfileMenuItem(
                 icon: Icons.confirmation_number_outlined,
                 label: 'My Tickets',
-                onTap: () {},
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const AttendeeTicketsScreen(),
+                    ),
+                  );
+                },
               ),
+              // Saved Events
               _buildProfileMenuItem(
                 icon: Icons.favorite_border_rounded,
-                label: 'Saved Events',
-                onTap: () {},
+                label: bookmarkedCount > 0
+                    ? 'Saved Events ($bookmarkedCount)'
+                    : 'Saved Events',
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const SavedEventsScreen(),
+                    ),
+                  );
+                },
               ),
+              // Notifications
               _buildProfileMenuItem(
                 icon: Icons.notifications_none_rounded,
                 label: 'Notifications',
-                onTap: () {},
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const NotificationsScreen(),
+                    ),
+                  );
+                },
               ),
+              // Help & Support
               _buildProfileMenuItem(
                 icon: Icons.help_outline_rounded,
                 label: 'Help & Support',
-                onTap: () {},
+                onTap: () => _showHelpSheet(context),
               ),
               const SizedBox(height: 8),
               const Divider(color: Colors.white10),
               const SizedBox(height: 8),
 
-              // Sign Out button
+              // Sign Out
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(

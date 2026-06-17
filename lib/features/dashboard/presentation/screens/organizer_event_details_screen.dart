@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../attendees/presentation/screens/organizer_attendees_screen.dart';
 import '../../domain/models/event_sales_summary.dart';
+import '../../presentation/screens/create_event_screen.dart';
+import '../../presentation/screens/organizer_scanner_screen.dart';
 import '../../../tickets/presentation/controller/ticket_booking_controller.dart';
 import '../../../../core/widgets/shared_app_bar.dart';
 
@@ -47,9 +49,10 @@ class OrganizerEventDetailsScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.edit_outlined, color: Color(0xFF717F8C)),
             onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Edit event feature coming soon!'),
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) =>
+                      CreateEventScreen(existingEvent: summary.event),
                 ),
               );
             },
@@ -98,7 +101,7 @@ class OrganizerEventDetailsScreen extends ConsumerWidget {
               Expanded(
                 child: _buildStatCard(
                   label: 'Gross Revenue',
-                  value: '\$${summary.totalRevenue.toStringAsFixed(0)}',
+                  value: 'Rp ${summary.totalRevenue.toStringAsFixed(0)}',
                   icon: Icons.attach_money_rounded,
                   color: const Color(0xFF10B981),
                 ),
@@ -207,8 +210,10 @@ class OrganizerEventDetailsScreen extends ConsumerWidget {
           const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Scanner turning on soon!')),
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const OrganizerScannerScreen(),
+                ),
               );
             },
             icon: const Icon(
@@ -290,7 +295,7 @@ class OrganizerEventDetailsScreen extends ConsumerWidget {
                           ],
                         ),
                         Text(
-                          '\$${(tier.ticketsSold * tier.price).toStringAsFixed(0)}',
+                          'Rp ${(tier.ticketsSold * tier.price).toStringAsFixed(0)}',
                           style: const TextStyle(
                             color: Color(0xFF1E293B),
                             fontWeight: FontWeight.bold,

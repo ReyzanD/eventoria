@@ -12,6 +12,7 @@ class TicketEntity {
   final DateTime createdAt;
   final String? eventName;
   final String? ticketTierName;
+  final String? paymentStatus;
 
   const TicketEntity({
     required this.id,
@@ -27,5 +28,6 @@ class TicketEntity {
     required this.createdAt,
     this.eventName,
     this.ticketTierName,
+    this.paymentStatus,
   });
 }

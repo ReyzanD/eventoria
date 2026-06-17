@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import '../../domain/entities/ticket_entity.dart'; // Adjust to your actual entity import
+import '../../domain/entities/ticket_entity.dart';
 
 class TicketQrScreen extends StatelessWidget {
-  final TicketEntity ticket; // The specific ticket the user tapped on
+  final TicketEntity ticket;
 
   const TicketQrScreen({super.key, required this.ticket});
 
@@ -198,6 +198,53 @@ class TicketQrScreen extends StatelessWidget {
               ),
 
               const SizedBox(height: 32),
+
+              if (ticket.paymentStatus == 'pending') ...[
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Colors.orange.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.warning_amber_rounded,
+                        color: Colors.orangeAccent,
+                        size: 22,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Payment Pending',
+                              style: TextStyle(
+                                color: Colors.orangeAccent,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'This ticket is confirmed once the organizer verifies payment.',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.7),
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
 
               // Helper text for the user
               const Text(

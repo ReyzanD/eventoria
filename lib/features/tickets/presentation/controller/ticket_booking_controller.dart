@@ -28,24 +28,22 @@ class TicketBookingController extends _$TicketBookingController {
     return const AsyncData(null);
   }
 
-  Future<bool> bookTicket(String eventId, String ticketTierId) async {
+  Future<bool> bookTicket(String eventId, String ticketTierId, {int quantity = 1}) async {
     state = const AsyncLoading();
 
     try {
-      // Get the injected Supabase client to check auth
       final client = ref.read(supabaseProvider);
       final user = client.auth.currentUser;
 
       if (user == null) throw Exception('User not Logged In');
 
-      // Grab the worker (Repository) we built earlier
       final repository = ref.read(getTicketRepositoryProvider);
 
-      // The repository handles the order number generation and the Supabase insertion!
       await repository.purchaseTicket(
         eventId: eventId,
         tierId: ticketTierId,
         attendeeId: user.id,
+        quantity: quantity,
       );
 
       state = const AsyncData(null);

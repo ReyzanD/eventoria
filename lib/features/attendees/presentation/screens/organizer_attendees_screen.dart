@@ -4,6 +4,7 @@ import '../providers/attendees_provider.dart';
 import '../widgets/metric_card.dart';
 import '../widgets/attendee_card.dart';
 import '../widgets/attendee_details_sheet.dart';
+import '../../../tickets/data/repositories/ticket_repository_provider.dart';
 
 class OrganizerAttendeesScreen extends ConsumerStatefulWidget {
   final String eventId;
@@ -224,14 +225,46 @@ class _OrganizerAttendeesScreenState
                           ),
                           onCheckIn: attendee.checkedIn
                               ? null
-                              : () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        'Check-in flow for ${attendee.name} comes next.',
+                              : () async {
+                                  try {
+                                    final repository = ref.read(
+                                      getTicketRepositoryProvider,
+                                    );
+                                    await repository
+                                        .checkInTicket(attendee.id);
+                                    ref.invalidate(
+                                      attendeesControllerProvider(
+                                        widget.eventId,
                                       ),
-                                    ),
-                                  );
+                                    );
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            '${attendee.name} checked in!',
+                                          ),
+                                          backgroundColor:
+                                              const Color(0xFF16A34A),
+                                        ),
+                                      );
+                                    }
+                                  } catch (e) {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            'Error: ${e.toString().replaceAll('Exception: ', '')}',
+                                          ),
+                                          backgroundColor:
+                                              const Color(0xFFEF4444),
+                                        ),
+                                      );
+                                    }
+                                  }
                                 },
                         ),
                       ),
